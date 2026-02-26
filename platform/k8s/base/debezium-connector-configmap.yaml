@@ -1,0 +1,28 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: debezium-connector
+data:
+  connector.json: |
+    {
+      "name": "inventory-postgres-connector",
+      "config": {
+        "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+        "database.hostname": "postgres",
+        "database.port": "5432",
+        "database.user": "market",
+        "database.password": "marketpass",
+        "database.dbname": "market",
+        "database.server.name": "inventory",
+        "schema.include.list": "public",
+        "table.include.list": "public.*",
+        "plugin.name": "pgoutput",
+        "slot.name": "debezium",
+        "publication.autocreate.mode": "filtered",
+        "tombstones.on.delete": "false",
+        "slot.drop.on.stop": "true",
+        "topic.creation.enable": "true",
+        "topic.creation.default.replication.factor": "1",
+        "topic.creation.default.partitions": "3"
+      }
+    }

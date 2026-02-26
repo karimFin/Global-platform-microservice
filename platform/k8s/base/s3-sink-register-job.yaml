@@ -1,0 +1,33 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: s3-sink-register
+  labels:
+    app: s3-sink-register
+spec:
+  template:
+    metadata:
+      labels:
+        app: s3-sink-register
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: register
+          image: curlimages/curl:8.5.0
+          command:
+            - /bin/sh
+            - -lc
+            - >
+              sleep 20 &&
+              curl -s -X POST -H "Content-Type: application/json" --data @/config/connector.json http://kafka-connect:8083/connectors ||
+              curl -s -X PUT -H "Content-Type: application/json" --data @/config/connector.json http://kafka-connect:8083/connectors/s3-sink/config
+          volumeMounts:
+            - name: cfg
+              mountPath: /config
+      volumes:
+        - name: cfg
+          configMap:
+            name: s3-sink-connector
+            items:
+              - key: connector.json
+                path: connector.json

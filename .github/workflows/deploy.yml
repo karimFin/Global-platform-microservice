@@ -1,0 +1,130 @@
+name: Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Git ref to deploy"
+        required: true
+        default: ${{ github.sha }}
+
+env:
+  REGISTRY: ghcr.io
+  REPO: ${{ github.repository }}
+
+jobs:
+  deploy-dev:
+    runs-on: ubuntu-latest
+    if: ${{ secrets.KUBE_CONFIG_DEV != '' }}
+    env:
+      SHA: ${{ github.event.inputs.ref || github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install kubectl & kustomize
+        uses: azure/setup-kubectl@v4
+        with:
+          version: 'v1.30.2'
+      - uses: imranismail/setup-kustomize@v2
+      - name: Configure kubeconfig
+        run: |
+          echo "${KUBE_CONFIG_DEV}" | base64 -d > $HOME/.kube/config
+        env:
+          KUBE_CONFIG_DEV: ${{ secrets.KUBE_CONFIG_DEV }}
+      - name: Prepare kustomize images
+        run: |
+          cd platform/k8s/overlays/dev
+          kustomize edit set image api-gateway=${{ env.REGISTRY }}/${{ env.REPO }}/api-gateway:${SHA}
+          kustomize edit set image identity=${{ env.REGISTRY }}/${{ env.REPO }}/identity:${SHA}
+          kustomize edit set image seller=${{ env.REGISTRY }}/${{ env.REPO }}/seller:${SHA}
+          kustomize edit set image catalog=${{ env.REGISTRY }}/${{ env.REPO }}/catalog:${SHA}
+          kustomize edit set image search=${{ env.REGISTRY }}/${{ env.REPO }}/search:${SHA}
+          kustomize edit set image pricing=${{ env.REGISTRY }}/${{ env.REPO }}/pricing:${SHA}
+          kustomize edit set image inventory=${{ env.REGISTRY }}/${{ env.REPO }}/inventory:${SHA}
+          kustomize edit set image cart=${{ env.REGISTRY }}/${{ env.REPO }}/cart:${SHA}
+          kustomize edit set image checkout=${{ env.REGISTRY }}/${{ env.REPO }}/checkout:${SHA}
+          kustomize edit set image payments=${{ env.REGISTRY }}/${{ env.REPO }}/payments:${SHA}
+          kustomize edit set image orders=${{ env.REGISTRY }}/${{ env.REPO }}/orders:${SHA}
+          kustomize edit set image fulfillment=${{ env.REGISTRY }}/${{ env.REPO }}/fulfillment:${SHA}
+          kustomize edit set image notifications=${{ env.REGISTRY }}/${{ env.REPO }}/notifications:${SHA}
+          kustomize edit set image reviews=${{ env.REGISTRY }}/${{ env.REPO }}/reviews:${SHA}
+          kustomize edit set image analytics=${{ env.REGISTRY }}/${{ env.REPO }}/analytics:${SHA}
+      - name: Apply dev overlay
+        run: |
+          kubectl apply -k platform/k8s/overlays/dev
+      - name: Wait for rollouts
+        run: |
+          for d in api-gateway identity seller catalog search pricing inventory cart checkout payments orders fulfillment notifications reviews analytics; do
+            kubectl rollout status deployment/$d -n marketplace-dev --timeout=180s || exit 1
+          done
+
+  canary-prod:
+    runs-on: ubuntu-latest
+    needs: deploy-dev
+    if: ${{ secrets.KUBE_CONFIG_PROD != '' }}
+    env:
+      SHA: ${{ github.event.inputs.ref || github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install kubectl & kustomize
+        uses: azure/setup-kubectl@v4
+        with:
+          version: 'v1.30.2'
+      - uses: imranismail/setup-kustomize@v2
+      - name: Configure kubeconfig
+        run: |
+          echo "${KUBE_CONFIG_PROD}" | base64 -d > $HOME/.kube/config
+        env:
+          KUBE_CONFIG_PROD: ${{ secrets.KUBE_CONFIG_PROD }}
+      - name: Canary on api-gateway
+        run: |
+          cd platform/k8s/overlays/prod
+          kustomize edit set image api-gateway=${{ env.REGISTRY }}/${{ env.REPO }}/api-gateway:${SHA}
+          kubectl apply -k .
+          set +e
+          kubectl rollout status deployment/api-gateway -n marketplace-prod --timeout=180s
+          RC=$?
+          if [ $RC -ne 0 ]; then
+            echo "Canary failed; rolling back api-gateway"
+            kubectl rollout undo deployment/api-gateway -n marketplace-prod
+            exit 1
+          fi
+
+  promote-prod:
+    runs-on: ubuntu-latest
+    needs: canary-prod
+    if: ${{ secrets.KUBE_CONFIG_PROD != '' }}
+    env:
+      SHA: ${{ github.event.inputs.ref || github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install kubectl & kustomize
+        uses: azure/setup-kubectl@v4
+        with:
+          version: 'v1.30.2'
+      - uses: imranismail/setup-kustomize@v2
+      - name: Configure kubeconfig
+        run: |
+          echo "${KUBE_CONFIG_PROD}" | base64 -d > $HOME/.kube/config
+        env:
+          KUBE_CONFIG_PROD: ${{ secrets.KUBE_CONFIG_PROD }}
+      - name: Promote all images
+        run: |
+          cd platform/k8s/overlays/prod
+          for img in api-gateway identity seller catalog search pricing inventory cart checkout payments orders fulfillment notifications reviews analytics; do
+            kustomize edit set image $img=${{ env.REGISTRY }}/${{ env.REPO }}/$img:${SHA}
+          done
+          kubectl apply -k .
+      - name: Wait for rollouts and auto-rollback on failure
+        run: |
+          set +e
+          FAILED=0
+          for d in api-gateway identity seller catalog search pricing inventory cart checkout payments orders fulfillment notifications reviews analytics; do
+            kubectl rollout status deployment/$d -n marketplace-prod --timeout=180s
+            RC=$?
+            if [ $RC -ne 0 ]; then
+              echo "Rollout failed for $d; performing rollback"
+              kubectl rollout undo deployment/$d -n marketplace-prod
+              FAILED=1
+            fi
+          done
+          exit $FAILED

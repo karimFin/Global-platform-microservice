@@ -1,0 +1,10 @@
+{
+  "name": "global-marketplace-platform",
+  "private": true,
+  "scripts": {
+    "lint": "eslint \"services/**/src/**/*.js\""
+  },
+  "devDependencies": {
+    "eslint": "^8.57.0"
+  }
+}

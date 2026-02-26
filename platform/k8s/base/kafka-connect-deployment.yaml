@@ -1,0 +1,72 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kafka-connect
+  labels:
+    app: kafka-connect
+    app.kubernetes.io/name: kafka-connect
+    app.kubernetes.io/component: eventing
+    app.kubernetes.io/part-of: marketplace
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kafka-connect
+  template:
+    metadata:
+      labels:
+        app: kafka-connect
+    spec:
+      containers:
+        - name: kafka-connect
+          image: debezium/connect:2.6
+          ports:
+            - name: http
+              containerPort: 8083
+          env:
+            - name: BOOTSTRAP_SERVERS
+              value: kafka:9092
+            - name: GROUP_ID
+              value: "1"
+            - name: CONFIG_STORAGE_TOPIC
+              value: connect.configs
+            - name: OFFSET_STORAGE_TOPIC
+              value: connect.offsets
+            - name: STATUS_STORAGE_TOPIC
+              value: connect.status
+            - name: KEY_CONVERTER
+              value: org.apache.kafka.connect.json.JsonConverter
+            - name: VALUE_CONVERTER
+              value: org.apache.kafka.connect.json.JsonConverter
+            - name: CONNECT_PLUGIN_PATH
+              value: /plugins
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: minio-credentials
+                  key: accesskey
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: minio-credentials
+                  key: secretkey
+            - name: S3_ENDPOINT
+              value: http://minio:9000
+          volumeMounts:
+            - name: plugins
+              mountPath: /plugins
+      initContainers:
+        - name: aiven-s3-plugin
+          image: curlimages/curl:8.5.0
+          command:
+            - /bin/sh
+            - -lc
+            - >
+              mkdir -p /plugins/aiven &&
+              curl -L -o /plugins/aiven/kafka-connect-s3-3.6.1.jar https://repo1.maven.org/maven2/io/aiven/kafka-connect-s3/3.6.1/kafka-connect-s3-3.6.1.jar
+          volumeMounts:
+            - name: plugins
+              mountPath: /plugins
+      volumes:
+        - name: plugins
+          emptyDir: {}

@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: [main, dev]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service:
+          - api-gateway
+          - identity
+          - seller
+          - catalog
+          - search
+          - pricing
+          - inventory
+          - cart
+          - checkout
+          - payments
+          - orders
+          - fulfillment
+          - notifications
+          - reviews
+          - analytics
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: cd services/${{ matrix.service }} && npm ci && npm test

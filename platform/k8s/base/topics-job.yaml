@@ -1,0 +1,23 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: kafka-topics-init
+  labels:
+    app: kafka-topics-init
+spec:
+  template:
+    metadata:
+      labels:
+        app: kafka-topics-init
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: init
+          image: bitnami/kafka:3.6
+          command:
+            - /bin/bash
+            - -lc
+            - >
+              /opt/bitnami/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic orders.events --replication-factor 1 --partitions 3 &&
+              /opt/bitnami/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic payments.events --replication-factor 1 --partitions 3 &&
+              /opt/bitnami/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic inventory.cdc --replication-factor 1 --partitions 3

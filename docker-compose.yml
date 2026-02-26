@@ -1,0 +1,250 @@
+services:
+  api-gateway:
+    build:
+      context: ./services/api-gateway
+    ports:
+      - "9000:8080"
+    environment:
+      - SERVICE_NAME=api-gateway
+      - PORT=8080
+  identity:
+    build:
+      context: ./services/identity
+    ports:
+      - "9001:8080"
+    environment:
+      - SERVICE_NAME=identity
+      - PORT=8080
+  seller:
+    build:
+      context: ./services/seller
+    ports:
+      - "9002:8080"
+    environment:
+      - SERVICE_NAME=seller
+      - PORT=8080
+  catalog:
+    build:
+      context: ./services/catalog
+    ports:
+      - "9003:8080"
+    environment:
+      - SERVICE_NAME=catalog
+      - PORT=8080
+  search:
+    build:
+      context: ./services/search
+    ports:
+      - "9004:8080"
+    environment:
+      - SERVICE_NAME=search
+      - PORT=8080
+  pricing:
+    build:
+      context: ./services/pricing
+    ports:
+      - "9005:8080"
+    environment:
+      - SERVICE_NAME=pricing
+      - PORT=8080
+  inventory:
+    build:
+      context: ./services/inventory
+    ports:
+      - "9006:8080"
+    environment:
+      - SERVICE_NAME=inventory
+      - PORT=8080
+  cart:
+    build:
+      context: ./services/cart
+    ports:
+      - "9007:8080"
+    environment:
+      - SERVICE_NAME=cart
+      - PORT=8080
+  checkout:
+    build:
+      context: ./services/checkout
+    ports:
+      - "9008:8080"
+    environment:
+      - SERVICE_NAME=checkout
+      - PORT=8080
+  payments:
+    build:
+      context: ./services/payments
+    ports:
+      - "9009:8080"
+    environment:
+      - SERVICE_NAME=payments
+      - PORT=8080
+  orders:
+    build:
+      context: ./services/orders
+    ports:
+      - "9010:8080"
+    environment:
+      - SERVICE_NAME=orders
+      - PORT=8080
+  fulfillment:
+    build:
+      context: ./services/fulfillment
+    ports:
+      - "9011:8080"
+    environment:
+      - SERVICE_NAME=fulfillment
+      - PORT=8080
+  notifications:
+    build:
+      context: ./services/notifications
+    ports:
+      - "9012:8080"
+    environment:
+      - SERVICE_NAME=notifications
+      - PORT=8080
+  reviews:
+    build:
+      context: ./services/reviews
+    ports:
+      - "9013:8080"
+    environment:
+      - SERVICE_NAME=reviews
+      - PORT=8080
+  analytics:
+    build:
+      context: ./services/analytics
+    ports:
+      - "9014:8080"
+    environment:
+      - SERVICE_NAME=analytics
+      - PORT=8080
+  postgres:
+    image: debezium/postgres:16
+    container_name: postgres
+    environment:
+      - POSTGRES_USER=market
+      - POSTGRES_PASSWORD=marketpass
+      - POSTGRES_DB=market
+    ports:
+      - "5432:5432"
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+  opensearch:
+    image: opensearchproject/opensearch:2.14.0
+    container_name: opensearch
+    environment:
+      - discovery.type=single-node
+      - plugins.security.disabled=true
+      - OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    ports:
+      - "9200:9200"
+  kafka:
+    image: bitnami/kafka:3.6
+    container_name: kafka
+    environment:
+      - KAFKA_ENABLE_KRAFT=yes
+      - KAFKA_CFG_NODE_ID=1
+      - KAFKA_CFG_PROCESS_ROLES=controller,broker
+      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=1@kafka:9093
+      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093
+      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092
+      - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
+      - KAFKA_CFG_INTER_BROKER_LISTENER_NAME=PLAINTEXT
+      - KAFKA_CFG_NUM_PARTITIONS=3
+      - KAFKA_CFG_OFFSETS_TOPIC_REPLICATION_FACTOR=1
+      - KAFKA_CFG_TRANSACTION_STATE_LOG_MIN_ISR=1
+      - KAFKA_CFG_TRANSACTION_STATE_LOG_REPLICATION_FACTOR=1
+    ports:
+      - "9092:9092"
+  kafka-connect:
+    build:
+      context: ./infra/connect
+    container_name: kafka-connect
+    environment:
+      - BOOTSTRAP_SERVERS=kafka:9092
+      - GROUP_ID=1
+      - CONFIG_STORAGE_TOPIC=connect.configs
+      - OFFSET_STORAGE_TOPIC=connect.offsets
+      - STATUS_STORAGE_TOPIC=connect.status
+      - KEY_CONVERTER=org.apache.kafka.connect.json.JsonConverter
+      - VALUE_CONVERTER=org.apache.kafka.connect.json.JsonConverter
+      - CONNECT_REST_ADVERTISED_HOST_NAME=kafka-connect
+      - CONNECT_PLUGIN_PATH=/kafka/connect/plugins:/plugins
+      - AWS_ACCESS_KEY_ID=admin
+      - AWS_SECRET_ACCESS_KEY=adminadmin
+      - S3_ENDPOINT=http://minio:9000
+    ports:
+      - "8083:8083"
+    depends_on:
+      - kafka
+      - minio
+  topic-init:
+    image: bitnami/kafka:3.6
+    container_name: topic-init
+    depends_on:
+      - kafka
+    entrypoint: ["/bin/bash","-lc"]
+    command:
+      - >
+        sleep 10 &&
+        /opt/bitnami/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic orders.events --replication-factor 1 --partitions 3 &&
+        /opt/bitnami/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic payments.events --replication-factor 1 --partitions 3 &&
+        /opt/bitnami/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic inventory.cdc --replication-factor 1 --partitions 3
+  debezium-register:
+    image: curlimages/curl:8.5.0
+    container_name: debezium-register
+    depends_on:
+      - kafka-connect
+      - postgres
+    volumes:
+      - ./infra/dev/debezium-connector.json:/config/debezium-connector.json:ro
+    entrypoint: ["/bin/sh","-lc"]
+    command:
+      - >
+        sleep 15 &&
+        curl -s -X POST -H "Content-Type: application/json" --data @/config/debezium-connector.json http://kafka-connect:8083/connectors ||
+        curl -s -X PUT -H "Content-Type: application/json" --data @/config/debezium-connector.json http://kafka-connect:8083/connectors/inventory-postgres-connector/config
+  minio:
+    image: minio/minio:latest
+    container_name: minio
+    environment:
+      - MINIO_ROOT_USER=admin
+      - MINIO_ROOT_PASSWORD=adminadmin
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+  minio-setup:
+    image: minio/mc:latest
+    container_name: minio-setup
+    depends_on:
+      - minio
+    entrypoint: ["/bin/sh","-lc"]
+    command:
+      - >
+        sleep 5 &&
+        mc alias set local http://minio:9000 admin adminadmin &&
+        mc mb -p local/events || true &&
+        mc anonymous set download local/events
+  s3-sink-register:
+    image: curlimages/curl:8.5.0
+    container_name: s3-sink-register
+    depends_on:
+      - kafka-connect
+      - minio-setup
+    volumes:
+      - ./infra/dev/s3-sink-connector.json:/config/s3-sink-connector.json:ro
+    entrypoint: ["/bin/sh","-lc"]
+    command:
+      - >
+        sleep 20 &&
+        curl -s -X POST -H "Content-Type: application/json" --data @/config/s3-sink-connector.json http://localhost:8083/connectors ||
+        curl -s -X PUT -H "Content-Type: application/json" --data @/config/s3-sink-connector.json http://localhost:8083/connectors/s3-sink/config
