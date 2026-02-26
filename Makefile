@@ -7,4 +7,8 @@ down:
 	docker compose down -v
 
 test:
-	@for svc in \; do \n		(cd services/E8svc && npm test) || exit 1; \n	done
+	@set -e; \
+	for svc in $(SERVICES); do \
+		echo "Running tests for $$svc"; \
+		( cd services/$$svc && npm ci && npm test ); \
+	done

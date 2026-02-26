@@ -1,21 +1,26 @@
 {
   "name": "s3-sink",
   "config": {
-    "connector.class": "io.aiven.kafka.connect.s3.S3SinkConnector",
+    "connector.class": "io.confluent.connect.s3.S3SinkConnector",
     "tasks.max": "2",
     "topics": "inventory.cdc,orders.events,payments.events",
-    "aws.access.key.id": "admin",
-    "aws.secret.access.key": "adminadmin",
-    "aws.s3.endpoint": "http://minio:9000",
-    "aws.s3.path.style.access": "true",
     "s3.bucket.name": "events",
-    "file.compression.type": "gz",
-    "format.output.type": "jsonl",
+    "s3.region": "us-east-1",
+    "s3.part.size": "5242880",
+    "flush.size": "1",
+    "storage.class": "io.confluent.connect.s3.storage.S3Storage",
+    "format.class": "io.confluent.connect.s3.format.json.JsonFormat",
+    "partitioner.class": "io.confluent.connect.storage.partitioner.DefaultPartitioner",
+    "schema.compatibility": "NONE",
     "value.converter": "org.apache.kafka.connect.json.JsonConverter",
     "value.converter.schemas.enable": "false",
     "key.converter": "org.apache.kafka.connect.storage.StringConverter",
-    "part.size": "5242880",
-    "topics.dir": "cdc",
-    "name": "s3-sink"
+    "confluent.topic.bootstrap.servers": "redpanda:9092",
+    "confluent.topic.replication.factor": "1",
+    "aws.access.key.id": "admin",
+    "aws.secret.access.key": "adminadmin",
+    "store.url": "http://minio:9000",
+    "s3.path.style.access": "true",
+    "topics.dir": "cdc"
   }
 }

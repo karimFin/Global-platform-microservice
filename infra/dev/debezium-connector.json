@@ -7,7 +7,7 @@
     "database.user": "market",
     "database.password": "marketpass",
     "database.dbname": "market",
-    "database.server.name": "inventory",
+    "topic.prefix": "inventory",
     "schema.include.list": "public",
     "table.include.list": "public.*",
     "plugin.name": "pgoutput",
