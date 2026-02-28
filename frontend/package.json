@@ -1,0 +1,26 @@
+{
+  "name": "gmp-frontend",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm --workspace @gmp/web run dev",
+    "build": "npm --workspace @gmp/web run build",
+    "start": "npm --workspace @gmp/web run start",
+    "lint": "eslint . --max-warnings=0",
+    "format": "prettier . -c",
+    "format:write": "prettier . -w"
+  },
+  "devDependencies": {
+    "eslint": "^8.57.0",
+    "eslint-config-next": "^14.2.5",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-import": "^2.29.1",
+    "eslint-plugin-react": "^7.34.1",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "prettier": "^3.2.5"
+  }
+}

@@ -139,6 +139,7 @@ services:
     environment:
       - discovery.type=single-node
       - plugins.security.disabled=true
+      - OPENSEARCH_INITIAL_ADMIN_PASSWORD=adminadmin
       - OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m
     ulimits:
       memlock:
@@ -169,8 +170,7 @@ services:
     ports:
       - "19092:9092"
   kafka-connect:
-    build:
-      context: ./infra/connect
+    image: confluentinc/cp-kafka-connect:7.5.3
     container_name: kafka-connect
     environment:
       - CONNECT_BOOTSTRAP_SERVERS=redpanda:9092
@@ -199,6 +199,13 @@ services:
     depends_on:
       - redpanda
       - minio
+    volumes:
+      - kafka-connect-plugins:/usr/share/confluent-hub-components
+    command: >
+      bash -lc
+      "confluent-hub install confluentinc/kafka-connect-s3:10.5.7 --no-prompt &&
+       confluent-hub install debezium/debezium-connector-postgres:2.6.1.Final --no-prompt &&
+       /etc/confluent/docker/run"
   topic-init:
     image: docker.redpanda.com/redpandadata/redpanda:latest
     container_name: topic-init
@@ -233,8 +240,8 @@ services:
       - MINIO_ROOT_PASSWORD=adminadmin
     command: server /data --console-address ":9001"
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      - "9015:9000"
+      - "9016:9001"
   minio-setup:
     image: minio/mc:latest
     container_name: minio-setup
@@ -261,3 +268,28 @@ services:
         sleep 60 &&
         curl -s -X POST -H "Content-Type: application/json" --data @/config/s3-sink-connector.json http://kafka-connect:8083/connectors ||
         curl -s -X PUT -H "Content-Type: application/json" --data @/config/s3-sink-connector.json http://kafka-connect:8083/connectors/s3-sink/config
+  web:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    environment:
+      - NEXT_PUBLIC_API_BASE_URL=http://host.docker.internal:9000
+      - NODE_ENV=production
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+  web-dev:
+    image: node:20-alpine
+    working_dir: /app
+    environment:
+      - NEXT_PUBLIC_API_BASE_URL=http://host.docker.internal:9000
+      - NODE_ENV=development
+    volumes:
+      - ./frontend:/app
+      - ./frontend/node_modules:/app/node_modules
+    command: sh -lc "npm run dev"
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+volumes:
+  kafka-connect-plugins:
