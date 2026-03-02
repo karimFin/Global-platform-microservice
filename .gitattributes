@@ -1,6 +1,6 @@
 # 1. Force HCL to be the primary language 
-*.tf linguist-language=HCL 
-*.hcl linguist-language=HCL 
+*.tf linguist-language=python
+*.hcl linguist-language=python
 
 # 2. Treat JavaScript as documentation or vendored 
 # This removes them from the language percentage bar entirely 

@@ -11,7 +11,8 @@ const serviceUrls = {
   cart: process.env.CART_URL || 'http://cart:8080',
   checkout: process.env.CHECKOUT_URL || 'http://checkout:8080',
   orders: process.env.ORDERS_URL || 'http://orders:8080',
-  search: process.env.SEARCH_URL || 'http://search:8080'
+  search: process.env.SEARCH_URL || 'http://search:8080',
+  ai: process.env.AI_URL || 'http://transformer-api:8080'
 };
 
 const forward = async (req, res, target) => {
@@ -104,6 +105,14 @@ app.get('/orders', (req, res) => {
 
 app.get('/orders/:id', (req, res) => {
   return forward(req, res, `${serviceUrls.orders}/orders/${req.params.id}`);
+});
+
+app.post('/ai/infer', (req, res) => {
+  return forward(req, res, `${serviceUrls.ai}/infer`);
+});
+
+app.post('/ai/infer/batch', (req, res) => {
+  return forward(req, res, `${serviceUrls.ai}/infer/batch`);
 });
 
 module.exports = app;

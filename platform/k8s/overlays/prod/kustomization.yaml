@@ -112,3 +112,10 @@ patches:
         name: analytics
       spec:
         replicas: 3
+  - patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: transformer-api
+      spec:
+        replicas: 3

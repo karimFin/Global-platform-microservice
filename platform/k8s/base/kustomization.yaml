@@ -51,5 +51,7 @@ resources:
   - reviews-service.yaml
   - analytics-deployment.yaml
   - analytics-service.yaml
+  - transformer-api-deployment.yaml
+  - transformer-api-service.yaml
   - minio-deployment.yaml
   - minio-service.yaml

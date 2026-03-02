@@ -119,6 +119,16 @@ services:
     environment:
       - SERVICE_NAME=analytics
       - PORT=8080
+  transformer-api:
+    build:
+      context: ./services/transformer-api
+    ports:
+      - "9017:8080"
+    environment:
+      - SERVICE_NAME=transformer-api
+      - PORT=8080
+      - BASE_MODEL=distilbert-base-uncased-finetuned-sst-2-english
+      - MODEL_DIR=/models/transformer
   postgres:
     image: debezium/postgres:15
     container_name: postgres
