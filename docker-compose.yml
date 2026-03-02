@@ -139,7 +139,7 @@ services:
     environment:
       - discovery.type=single-node
       - plugins.security.disabled=true
-      - OPENSEARCH_INITIAL_ADMIN_PASSWORD=adminadmin
+      - OPENSEARCH_INITIAL_ADMIN_PASSWORD=Gmp!2026StrongPwd
       - OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m
     ulimits:
       memlock:
@@ -190,7 +190,8 @@ services:
       - CONNECT_REST_ADVERTISED_HOST_NAME=kafka-connect
       - CONNECT_REST_PORT=8083
       - CONNECT_LISTENERS=http://0.0.0.0:8083
-      - CONNECT_PLUGIN_PATH=/usr/share/java,/usr/share/confluent-hub-components
+      - CONNECT_PLUGIN_DISCOVERY=only_scan
+      - CONNECT_PLUGIN_PATH=/usr/share/java/debezium,/usr/share/confluent-hub-components
       - AWS_ACCESS_KEY_ID=admin
       - AWS_SECRET_ACCESS_KEY=adminadmin
       - S3_ENDPOINT=http://minio:9000
@@ -204,7 +205,10 @@ services:
     command: >
       bash -lc
       "confluent-hub install confluentinc/kafka-connect-s3:10.5.7 --no-prompt &&
-       confluent-hub install debezium/debezium-connector-postgres:2.6.1.Final --no-prompt &&
+       confluent-hub install debezium/debezium-connector-postgresql:latest --no-prompt &&
+       mkdir -p /usr/share/java/debezium &&
+       cp -f /usr/share/confluent-hub-components/debezium-debezium-connector-postgresql/lib/*.jar /usr/share/java/debezium/ &&
+       echo 'plugin.discovery=only_scan' >> /etc/kafka/connect-distributed.properties &&
        /etc/confluent/docker/run"
   topic-init:
     image: docker.redpanda.com/redpandadata/redpanda:latest
