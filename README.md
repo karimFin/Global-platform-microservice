@@ -1,7 +1,7 @@
 # Global Marketplace Platform
 
 ## Overview
-Enterprise‑grade e‑commerce microservices with FAANG‑style data and eventing foundations. This repo provides:
+Enterprise‑grade e‑commerce microservices with FAANG s data and eventing foundations. This repo provides:
 - Service mesh of Node.js microservices (API Gateway, Identity, Catalog, Orders, Payments, etc.)
 - Data plane: Postgres (OLTP), Redis (cache), OpenSearch (search)
 - Event plane: Kafka (KRaft), Kafka Connect with Debezium CDC and S3 sink
@@ -60,7 +60,7 @@ Jobs:
 - `minio-make-bucket` creates `events` bucket.
 - `s3-sink-register` registers Aiven S3 sink.
 
-## CI/CD (FAANG‑Style)
+## CI/CD (FAANG)
 Workflows:
 - `ci-extended.yml`:
   - Lint (ESLint), unit tests across services
