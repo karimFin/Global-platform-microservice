@@ -1,17 +1,22 @@
-"use client"
-import { useEffect, useState } from "react"
-import { productsApi } from "@gmp/api"
-import { PageHeader, Section, ProductCard } from "@gmp/ui"
+'use client'
+import { useEffect, useState } from 'react'
+import { productsApi } from '@gmp/api'
+import { PageHeader, Section, ProductCard } from '@gmp/ui'
 
 export default function ProductsPage() {
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
   useEffect(() => {
     let active = true
-    productsApi.list().then(d => {
-      if (active) setItems(d || [])
-    }).finally(() => active && setLoading(false))
-    return () => { active = false }
+    productsApi
+      .list()
+      .then(d => {
+        if (active) setItems(d || [])
+      })
+      .finally(() => active && setLoading(false))
+    return () => {
+      active = false
+    }
   }, [])
   return (
     <div className="grid" style={{ gap: 24 }}>
@@ -20,14 +25,16 @@ export default function ProductsPage() {
         subtitle="Browse the catalog and monitor pricing coverage across services."
       />
       <Section title="Catalog">
-        {loading ? <div className="empty">Loading catalog data...</div> : (
-          items.length ? (
-            <div className="grid grid-3">
-              {items.map(p => <ProductCard key={p.id} product={p} />)}
-            </div>
-          ) : (
-            <div className="empty">No products available yet.</div>
-          )
+        {loading ? (
+          <div className="empty">Loading catalog data...</div>
+        ) : items.length ? (
+          <div className="grid grid-3">
+            {items.map(p => (
+              <ProductCard key={p.id} product={p} />
+            ))}
+          </div>
+        ) : (
+          <div className="empty">No products available yet.</div>
         )}
       </Section>
       <Section title="Marketplace Coverage" subtitle="Regional readiness and pricing health.">

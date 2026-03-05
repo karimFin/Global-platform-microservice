@@ -1,13 +1,21 @@
-"use client"
-import { useMemo, useState } from "react"
-import { searchApi } from "@gmp/api"
-import { Button, PageHeader, Section } from "@gmp/ui"
+'use client'
+import { useMemo, useState } from 'react'
+import { searchApi } from '@gmp/api'
+import { Button, PageHeader, Section } from '@gmp/ui'
 
-const regions = ["All", "North America", "Europe", "Asia Pacific", "Latin America", "Middle East", "Global"]
+const regions = [
+  'All',
+  'North America',
+  'Europe',
+  'Asia Pacific',
+  'Latin America',
+  'Middle East',
+  'Global',
+]
 
 export default function SearchPage() {
-  const [query, setQuery] = useState("")
-  const [region, setRegion] = useState("All")
+  const [query, setQuery] = useState('')
+  const [region, setRegion] = useState('All')
   const [results, setResults] = useState([])
   const [loading, setLoading] = useState(false)
 
@@ -28,7 +36,10 @@ export default function SearchPage() {
 
   return (
     <div className="grid" style={{ gap: 24 }}>
-      <PageHeader title="Search" subtitle="Global catalog discovery across regions and categories." />
+      <PageHeader
+        title="Search"
+        subtitle="Global catalog discovery across regions and categories."
+      />
       <Section title="Search Controls" subtitle="Filter by region and keyword.">
         <div className="grid grid-3">
           <div className="card">
@@ -37,7 +48,13 @@ export default function SearchPage() {
               value={query}
               onChange={e => setQuery(e.target.value)}
               placeholder="Try headphones, storage, accessories..."
-              style={{ width: "100%", marginTop: 8, padding: 10, borderRadius: 10, border: "1px solid var(--border)" }}
+              style={{
+                width: '100%',
+                marginTop: 8,
+                padding: 10,
+                borderRadius: 10,
+                border: '1px solid var(--border)',
+              }}
             />
           </div>
           <div className="card">
@@ -45,19 +62,33 @@ export default function SearchPage() {
             <select
               value={region}
               onChange={e => setRegion(e.target.value)}
-              style={{ width: "100%", marginTop: 8, padding: 10, borderRadius: 10, border: "1px solid var(--border)" }}
+              style={{
+                width: '100%',
+                marginTop: 8,
+                padding: 10,
+                borderRadius: 10,
+                border: '1px solid var(--border)',
+              }}
             >
               {regions.map(item => (
-                <option key={item} value={item}>{item}</option>
+                <option key={item} value={item}>
+                  {item}
+                </option>
               ))}
             </select>
           </div>
-          <div className="card" style={{ display: "flex", alignItems: "flex-end", justifyContent: "flex-end" }}>
-            <Button onClick={runSearch}>{loading ? "Searching..." : "Search Catalog"}</Button>
+          <div
+            className="card"
+            style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'flex-end' }}
+          >
+            <Button onClick={runSearch}>{loading ? 'Searching...' : 'Search Catalog'}</Button>
           </div>
         </div>
       </Section>
-      <Section title="Search Results" subtitle={`${stats.total} results across ${stats.categories || 0} categories`}>
+      <Section
+        title="Search Results"
+        subtitle={`${stats.total} results across ${stats.categories || 0} categories`}
+      >
         {loading ? (
           <div className="empty">Searching catalog...</div>
         ) : results.length ? (
