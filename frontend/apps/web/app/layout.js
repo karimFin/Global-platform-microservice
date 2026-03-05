@@ -1,19 +1,19 @@
-import "./globals.css"
-import Link from "next/link"
+import './globals.css'
+import Link from 'next/link'
 
 export const metadata = {
-  title: "Global Marketplace Platform",
-  description: "Marketplace services dashboard and commerce flows"
+  title: 'Global Marketplace Platform',
+  description: 'Marketplace services dashboard and commerce flows',
 }
 
 const navItems = [
-  { href: "/", label: "Overview" },
-  { href: "/products", label: "Products" },
-  { href: "/search", label: "Search" },
-  { href: "/cart", label: "Cart" },
-  { href: "/checkout", label: "Checkout" },
-  { href: "/orders", label: "Orders" },
-  { href: "/services", label: "Services" }
+  { href: '/', label: 'Overview' },
+  { href: '/products', label: 'Products' },
+  { href: '/search', label: 'Search' },
+  { href: '/cart', label: 'Cart' },
+  { href: '/checkout', label: 'Checkout' },
+  { href: '/orders', label: 'Orders' },
+  { href: '/services', label: 'Services' },
 ]
 
 export default function RootLayout({ children }) {

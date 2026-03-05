@@ -1,7 +1,7 @@
-"use client"
-import { useEffect, useState } from "react"
-import { cartApi } from "@gmp/api"
-import { PageHeader, Section } from "@gmp/ui"
+'use client'
+import { useEffect, useState } from 'react'
+import { cartApi } from '@gmp/api'
+import { PageHeader, Section } from '@gmp/ui'
 
 export default function CartPage() {
   const [cart, setCart] = useState(null)

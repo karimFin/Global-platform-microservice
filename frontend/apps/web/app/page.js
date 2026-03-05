@@ -1,11 +1,11 @@
-import Link from "next/link"
-import { Button, PageHeader, Section, StatCard } from "@gmp/ui"
+import Link from 'next/link'
+import { Button, PageHeader, Section, StatCard } from '@gmp/ui'
 
 const quickLinks = [
-  { href: "/products", label: "Browse Products", detail: "Explore the catalog" },
-  { href: "/cart", label: "Review Cart", detail: "Items ready to purchase" },
-  { href: "/checkout", label: "Checkout", detail: "Place and track orders" },
-  { href: "/services", label: "Service Status", detail: "Infra health view" }
+  { href: '/products', label: 'Browse Products', detail: 'Explore the catalog' },
+  { href: '/cart', label: 'Review Cart', detail: 'Items ready to purchase' },
+  { href: '/checkout', label: 'Checkout', detail: 'Place and track orders' },
+  { href: '/services', label: 'Service Status', detail: 'Infra health view' },
 ]
 
 export default function Page() {
@@ -31,7 +31,10 @@ export default function Page() {
           ))}
         </div>
       </Section>
-      <Section title="Environment Highlights" subtitle="Key services and integrations in this stack.">
+      <Section
+        title="Environment Highlights"
+        subtitle="Key services and integrations in this stack."
+      >
         <div className="grid grid-2">
           <div className="card">
             <h3 style={{ marginTop: 0 }}>Catalog + Inventory</h3>
