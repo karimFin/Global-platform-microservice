@@ -1,6 +1,9 @@
 name: Deploy
 
 on:
+  push:
+    branches:
+      - dev
   workflow_dispatch:
     inputs:
       ref:
@@ -16,6 +19,7 @@ jobs:
   deploy-dev:
     runs-on: ubuntu-latest
     if: ${{ secrets.KUBE_CONFIG_DEV != '' }}
+    environment: dev
     env:
       SHA: ${{ github.event.inputs.ref || github.sha }}
     steps:
@@ -34,6 +38,7 @@ jobs:
         run: |
           cd platform/k8s/overlays/dev
           kustomize edit set image api-gateway=${{ env.REGISTRY }}/${{ env.REPO }}/api-gateway:${SHA}
+          kustomize edit set image web=${{ env.REGISTRY }}/${{ env.REPO }}/web:${SHA}
           kustomize edit set image identity=${{ env.REGISTRY }}/${{ env.REPO }}/identity:${SHA}
           kustomize edit set image seller=${{ env.REGISTRY }}/${{ env.REPO }}/seller:${SHA}
           kustomize edit set image catalog=${{ env.REGISTRY }}/${{ env.REPO }}/catalog:${SHA}
@@ -53,14 +58,15 @@ jobs:
           kubectl apply -k platform/k8s/overlays/dev
       - name: Wait for rollouts
         run: |
-          for d in api-gateway identity seller catalog search pricing inventory cart checkout payments orders fulfillment notifications reviews analytics; do
+          for d in api-gateway web identity seller catalog search pricing inventory cart checkout payments orders fulfillment notifications reviews analytics; do
             kubectl rollout status deployment/$d -n marketplace-dev --timeout=180s || exit 1
           done
 
   canary-prod:
     runs-on: ubuntu-latest
     needs: deploy-dev
-    if: ${{ secrets.KUBE_CONFIG_PROD != '' }}
+    if: ${{ secrets.KUBE_CONFIG_PROD != '' && github.event_name == 'workflow_dispatch' }}
+    environment: prod
     env:
       SHA: ${{ github.event.inputs.ref || github.sha }}
     steps:
@@ -92,7 +98,8 @@ jobs:
   promote-prod:
     runs-on: ubuntu-latest
     needs: canary-prod
-    if: ${{ secrets.KUBE_CONFIG_PROD != '' }}
+    if: ${{ secrets.KUBE_CONFIG_PROD != '' && github.event_name == 'workflow_dispatch' }}
+    environment: prod
     env:
       SHA: ${{ github.event.inputs.ref || github.sha }}
     steps:
@@ -110,7 +117,7 @@ jobs:
       - name: Promote all images
         run: |
           cd platform/k8s/overlays/prod
-          for img in api-gateway identity seller catalog search pricing inventory cart checkout payments orders fulfillment notifications reviews analytics; do
+          for img in api-gateway web identity seller catalog search pricing inventory cart checkout payments orders fulfillment notifications reviews analytics; do
             kustomize edit set image $img=${{ env.REGISTRY }}/${{ env.REPO }}/$img:${SHA}
           done
           kubectl apply -k .
@@ -118,7 +125,7 @@ jobs:
         run: |
           set +e
           FAILED=0
-          for d in api-gateway identity seller catalog search pricing inventory cart checkout payments orders fulfillment notifications reviews analytics; do
+          for d in api-gateway web identity seller catalog search pricing inventory cart checkout payments orders fulfillment notifications reviews analytics; do
             kubectl rollout status deployment/$d -n marketplace-prod --timeout=180s
             RC=$?
             if [ $RC -ne 0 ]; then

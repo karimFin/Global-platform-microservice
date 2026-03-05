@@ -19,7 +19,7 @@ spec:
     spec:
       containers:
         - name: kafka-connect
-          image: debezium/connect:2.6
+          image: docker.io/debezium/connect:2.6
           ports:
             - name: http
               containerPort: 8083
@@ -57,7 +57,7 @@ spec:
               mountPath: /plugins
       initContainers:
         - name: aiven-s3-plugin
-          image: curlimages/curl:8.5.0
+          image: docker.io/curlimages/curl:8.5.0
           command:
             - /bin/sh
             - -lc

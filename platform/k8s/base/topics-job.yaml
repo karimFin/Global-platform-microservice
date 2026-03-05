@@ -13,11 +13,11 @@ spec:
       restartPolicy: OnFailure
       containers:
         - name: init
-          image: bitnami/kafka:3.6
+          image: docker.io/apache/kafka:3.7.0
           command:
             - /bin/bash
             - -lc
             - >
-              /opt/bitnami/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic orders.events --replication-factor 1 --partitions 3 &&
-              /opt/bitnami/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic payments.events --replication-factor 1 --partitions 3 &&
-              /opt/bitnami/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic inventory.cdc --replication-factor 1 --partitions 3
+              /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic orders.events --replication-factor 1 --partitions 3 &&
+              /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic payments.events --replication-factor 1 --partitions 3 &&
+              /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic inventory.cdc --replication-factor 1 --partitions 3
