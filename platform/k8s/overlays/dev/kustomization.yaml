@@ -6,6 +6,59 @@ namespace: marketplace-dev
 resources:
   - ../../base
 
+images:
+  - name: api-gateway
+    newName: ghcr.io/karimfin/global-platform-microservice/api-gateway
+    newTag: dev-amd64-c3443cf34a6d
+  - name: identity
+    newName: ghcr.io/karimfin/global-platform-microservice/identity
+    newTag: dev-amd64-c3443cf34a6d
+  - name: seller
+    newName: ghcr.io/karimfin/global-platform-microservice/seller
+    newTag: dev-amd64-c3443cf34a6d
+  - name: catalog
+    newName: ghcr.io/karimfin/global-platform-microservice/catalog
+    newTag: dev-amd64-c3443cf34a6d
+  - name: search
+    newName: ghcr.io/karimfin/global-platform-microservice/search
+    newTag: dev-amd64-c3443cf34a6d
+  - name: pricing
+    newName: ghcr.io/karimfin/global-platform-microservice/pricing
+    newTag: dev-amd64-c3443cf34a6d
+  - name: inventory
+    newName: ghcr.io/karimfin/global-platform-microservice/inventory
+    newTag: dev-amd64-c3443cf34a6d
+  - name: cart
+    newName: ghcr.io/karimfin/global-platform-microservice/cart
+    newTag: dev-amd64-c3443cf34a6d
+  - name: checkout
+    newName: ghcr.io/karimfin/global-platform-microservice/checkout
+    newTag: dev-amd64-c3443cf34a6d
+  - name: payments
+    newName: ghcr.io/karimfin/global-platform-microservice/payments
+    newTag: dev-amd64-c3443cf34a6d
+  - name: orders
+    newName: ghcr.io/karimfin/global-platform-microservice/orders
+    newTag: dev-amd64-c3443cf34a6d
+  - name: fulfillment
+    newName: ghcr.io/karimfin/global-platform-microservice/fulfillment
+    newTag: dev-amd64-c3443cf34a6d
+  - name: notifications
+    newName: ghcr.io/karimfin/global-platform-microservice/notifications
+    newTag: dev-amd64-c3443cf34a6d
+  - name: reviews
+    newName: ghcr.io/karimfin/global-platform-microservice/reviews
+    newTag: dev-amd64-c3443cf34a6d
+  - name: analytics
+    newName: ghcr.io/karimfin/global-platform-microservice/analytics
+    newTag: dev-amd64-c3443cf34a6d
+  - name: transformer-api
+    newName: ghcr.io/karimfin/global-platform-microservice/transformer-api
+    newTag: dev-amd64-c3443cf34a6d
+  - name: web
+    newName: ghcr.io/karimfin/global-platform-microservice/web
+    newTag: dev-amd64-c3443cf34a6d
+
 patches:
   - patch: |-
       apiVersion: apps/v1

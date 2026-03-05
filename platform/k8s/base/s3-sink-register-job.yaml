@@ -13,7 +13,7 @@ spec:
       restartPolicy: OnFailure
       containers:
         - name: register
-          image: curlimages/curl:8.5.0
+          image: docker.io/curlimages/curl:8.5.0
           command:
             - /bin/sh
             - -lc

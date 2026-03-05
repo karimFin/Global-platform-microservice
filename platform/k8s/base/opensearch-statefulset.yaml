@@ -20,7 +20,7 @@ spec:
     spec:
       containers:
         - name: opensearch
-          image: opensearchproject/opensearch:2.14.0
+          image: docker.io/opensearchproject/opensearch:2.14.0
           env:
             - name: discovery.type
               value: single-node
@@ -28,6 +28,8 @@ spec:
               value: "true"
             - name: OPENSEARCH_JAVA_OPTS
               value: -Xms512m -Xmx512m
+            - name: OPENSEARCH_INITIAL_ADMIN_PASSWORD
+              value: Gmp!2026StrongPwd
           ports:
             - name: http
               containerPort: 9200
