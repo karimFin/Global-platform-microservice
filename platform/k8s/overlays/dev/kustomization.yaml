@@ -119,3 +119,10 @@ patches:
         name: transformer-api
       spec:
         replicas: 1
+  - patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: web
+      spec:
+        replicas: 1

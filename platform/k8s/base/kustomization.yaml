@@ -55,3 +55,5 @@ resources:
   - transformer-api-service.yaml
   - minio-deployment.yaml
   - minio-service.yaml
+  - web-deployment.yaml
+  - web-service.yaml
