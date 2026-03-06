@@ -2,79 +2,35 @@ name: CI Extended
 
 on:
   push:
-    branches: ["**"]
-  pull_request:
     branches: [main, dev]
+  workflow_dispatch:
 
-env:
-  REGISTRY: ghcr.io
-  REPO: ${{ github.repository }}
-  SHA: ${{ github.sha }}
+permissions:
+  contents: read
+  packages: write
+  security-events: write
+  id-token: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  lint-test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-      - run: npm ci
-      - name: Lint (ESLint)
-        run: npm run lint
-      - name: Unit tests (matrix)
-        run: |
-          for svc in api-gateway identity seller catalog search pricing inventory cart checkout payments orders fulfillment notifications reviews analytics; do
-            echo "Testing $svc"
-            (cd services/$svc && npm ci && npm test)
-          done
-
-  build-scan-push:
-    runs-on: ubuntu-latest
-    needs: lint-test
-    permissions:
-      contents: read
-      packages: write
-    strategy:
-      fail-fast: false
-      matrix:
-        service: [api-gateway, web, identity, seller, catalog, search, pricing, inventory, cart, checkout, payments, orders, fulfillment, notifications, reviews, analytics]
-    steps:
-      - uses: actions/checkout@v4
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-      - name: Login to GHCR
-        if: ${{ env.ACT != 'true' }}
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Build and push image
-        uses: docker/build-push-action@v5
-        with:
-          context: ${{ matrix.service == 'web' && './frontend' || format('./services/{0}', matrix.service) }}
-          push: ${{ env.ACT != 'true' }}
-          tags: ${{ env.REGISTRY }}/${{ env.REPO }}/${{ matrix.service }}:${{ env.SHA }}
-          platforms: linux/amd64
-      - name: Generate SBOM (Syft)
-        uses: anchore/sbom-action@v0
-        with:
-          image: ${{ env.REGISTRY }}/${{ env.REPO }}/${{ matrix.service }}:${{ env.SHA }}
-          output-file: sbom-${{ matrix.service }}.spdx.json
-          format: spdx-json
-      - name: Upload SBOM artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: sbom-${{ matrix.service }}
-          path: sbom-${{ matrix.service }}.spdx.json
-      - name: Trivy scan
-        uses: aquasecurity/trivy-action@0.19.0
-        with:
-          image-ref: ${{ env.REGISTRY }}/${{ env.REPO }}/${{ matrix.service }}:${{ env.SHA }}
-          format: table
-          exit-code: '1'
-          ignore-unfixed: true
-          vuln-type: 'os,library'
+  pipeline:
+    uses: ./.github/workflows/reusable-cicd.yml
+    with:
+      environment_name: dev
+      namespace: marketplace-dev
+      overlay: dev
+      deploy: false
+      build_images: true
+      push_images: true
+      sign_images: true
+      run_tests: true
+      run_frontend: true
+      validate_k8s: false
+      validate_k8s_all: true
+      policy_check: true
+      canary_checks: false
+      create_namespace: false
+    secrets: inherit

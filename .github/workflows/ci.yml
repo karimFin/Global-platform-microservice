@@ -2,35 +2,33 @@ name: CI
 
 on:
   push:
-    branches: ["**"]
+    branches: [main, dev]
   pull_request:
     branches: [main, dev]
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  test:
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        service:
-          - api-gateway
-          - identity
-          - seller
-          - catalog
-          - search
-          - pricing
-          - inventory
-          - cart
-          - checkout
-          - payments
-          - orders
-          - fulfillment
-          - notifications
-          - reviews
-          - analytics
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-      - run: cd services/${{ matrix.service }} && npm ci && npm test
+  pipeline:
+    uses: ./.github/workflows/reusable-cicd.yml
+    with:
+      environment_name: dev
+      namespace: marketplace-dev
+      overlay: dev
+      deploy: false
+      build_images: false
+      push_images: false
+      sign_images: false
+      run_tests: true
+      run_frontend: true
+      validate_k8s: false
+      validate_k8s_all: true
+      policy_check: true
+      canary_checks: false
+      create_namespace: false
+    secrets: inherit

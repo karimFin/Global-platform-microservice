@@ -32,7 +32,7 @@ export default function CartPage() {
             </tbody>
           </table>
         ) : (
-          <div className="empty">Your cart is empty.</div>
+          <div className="empty">Your cart is empty. try again</div>
         )}
       </Section>
     </div>
