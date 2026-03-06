@@ -9,6 +9,7 @@ on:
 env:
   REGISTRY: ghcr.io
   REPO: ${{ github.repository }}
+  REPO_LOWER: ${{ toLower(github.repository) }}
   SHA: ${{ github.sha }}
 
 jobs:
@@ -57,12 +58,12 @@ jobs:
         with:
           context: ${{ matrix.service == 'web' && './frontend' || format('./services/{0}', matrix.service) }}
           push: ${{ env.ACT != 'true' }}
-          tags: ${{ env.REGISTRY }}/${{ env.REPO }}/${{ matrix.service }}:${{ env.SHA }}
+          tags: ${{ env.REGISTRY }}/${{ env.REPO_LOWER }}/${{ matrix.service }}:${{ env.SHA }}
           platforms: linux/amd64
       - name: Generate SBOM (Syft)
         uses: anchore/sbom-action@v0
         with:
-          image: ${{ env.REGISTRY }}/${{ env.REPO }}/${{ matrix.service }}:${{ env.SHA }}
+          image: ${{ env.REGISTRY }}/${{ env.REPO_LOWER }}/${{ matrix.service }}:${{ env.SHA }}
           output-file: sbom-${{ matrix.service }}.spdx.json
           format: spdx-json
       - name: Upload SBOM artifact
@@ -73,7 +74,7 @@ jobs:
       - name: Trivy scan
         uses: aquasecurity/trivy-action@0.19.0
         with:
-          image-ref: ${{ env.REGISTRY }}/${{ env.REPO }}/${{ matrix.service }}:${{ env.SHA }}
+          image-ref: ${{ env.REGISTRY }}/${{ env.REPO_LOWER }}/${{ matrix.service }}:${{ env.SHA }}
           format: table
           exit-code: '1'
           ignore-unfixed: true
