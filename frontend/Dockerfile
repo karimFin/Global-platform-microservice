@@ -5,6 +5,7 @@ COPY package-lock.json package-lock.json
 COPY apps/web/package.json apps/web/package.json
 COPY packages/ui/package.json packages/ui/package.json
 COPY packages/api/package.json packages/api/package.json
+RUN npm install -g npm@11.11.0
 RUN if [ -f package-lock.json ]; then npm ci; else npm install; fi
 
 FROM node:20-alpine AS builder
