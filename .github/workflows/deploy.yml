@@ -1,4 +1,4 @@
-name: Deploy Dev
+name: Deploy
 
 on:
   push:
@@ -6,19 +6,18 @@ on:
       - dev
   workflow_dispatch:
     inputs:
+      target:
+        description: "Deployment target"
+        required: true
+        default: dev
+        type: choice
+        options:
+          - dev
+          - prod
       ref:
         description: "Git ref to deploy"
         required: false
         default: ""
-      namespace:
-        description: "Kubernetes namespace"
-        required: false
-        default: "marketplace-dev"
-      create_namespace:
-        description: "Create namespace if missing"
-        required: false
-        default: true
-        type: boolean
 
 permissions:
   contents: read
@@ -34,9 +33,9 @@ jobs:
   pipeline:
     uses: ./.github/workflows/reusable-cicd.yml
     with:
-      environment_name: dev
-      namespace: ${{ github.event.inputs.namespace || 'marketplace-dev' }}
-      overlay: dev
+      environment_name: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.target || 'dev' }}
+      namespace: ${{ (github.event_name == 'workflow_dispatch' && github.event.inputs.target == 'prod') && 'marketplace-prod' || 'marketplace-dev' }}
+      overlay: ${{ (github.event_name == 'workflow_dispatch' && github.event.inputs.target == 'prod') && 'prod' || 'dev' }}
       deploy: true
       build_images: true
       push_images: true
@@ -46,7 +45,7 @@ jobs:
       validate_k8s: true
       validate_k8s_all: false
       policy_check: true
-      canary_checks: false
-      create_namespace: ${{ github.event.inputs.create_namespace != '' && github.event.inputs.create_namespace || true }}
+      canary_checks: true
+      create_namespace: true
       ref: ${{ github.event.inputs.ref }}
     secrets: inherit
