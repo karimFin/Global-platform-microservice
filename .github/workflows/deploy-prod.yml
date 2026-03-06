@@ -1,0 +1,54 @@
+name: Deploy Prod
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Git ref to deploy"
+        required: false
+        default: ""
+      namespace:
+        description: "Kubernetes namespace"
+        required: false
+        default: "marketplace-prod"
+      create_namespace:
+        description: "Create namespace if missing"
+        required: false
+        default: true
+        type: boolean
+      canary_checks:
+        description: "Enable canary checks before promotion"
+        required: false
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+  packages: write
+  security-events: write
+  id-token: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pipeline:
+    uses: ./.github/workflows/reusable-cicd.yml
+    with:
+      environment_name: prod
+      namespace: ${{ github.event.inputs.namespace || 'marketplace-prod' }}
+      overlay: prod
+      deploy: true
+      build_images: true
+      push_images: true
+      sign_images: true
+      run_tests: false
+      run_frontend: false
+      validate_k8s: true
+      validate_k8s_all: false
+      policy_check: true
+      canary_checks: ${{ github.event.inputs.canary_checks != '' && github.event.inputs.canary_checks || true }}
+      create_namespace: ${{ github.event.inputs.create_namespace != '' && github.event.inputs.create_namespace || true }}
+      ref: ${{ github.event.inputs.ref }}
+    secrets: inherit
