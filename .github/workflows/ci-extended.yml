@@ -1,8 +1,8 @@
-name: CI Extended
+name: CI Prod
 
 on:
   push:
-    branches: [main, dev]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -19,17 +19,17 @@ jobs:
   pipeline:
     uses: ./.github/workflows/reusable-cicd.yml
     with:
-      environment_name: dev
-      namespace: marketplace-dev
-      overlay: dev
+      environment_name: prod
+      namespace: marketplace-prod
+      overlay: prod
       deploy: false
       build_images: true
       push_images: true
       sign_images: true
       run_tests: true
       run_frontend: true
-      validate_k8s: false
-      validate_k8s_all: true
+      validate_k8s: true
+      validate_k8s_all: false
       policy_check: true
       canary_checks: false
       create_namespace: false

@@ -1,8 +1,8 @@
-name: CI
+name: CI Dev
 
 on:
   push:
-    branches: [main, dev]
+    branches: [dev]
   pull_request:
     branches: [main, dev]
 
