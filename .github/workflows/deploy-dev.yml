@@ -26,6 +26,11 @@ permissions:
   security-events: write
   id-token: write
 
+env:
+  DEPLOY_REF: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.ref || '' }}
+  DEPLOY_NAMESPACE: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.namespace || 'marketplace-dev' }}
+  CREATE_NAMESPACE: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.create_namespace == 'true' || true }}
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -35,7 +40,7 @@ jobs:
     uses: ./.github/workflows/reusable-cicd.yml
     with:
       environment_name: dev
-      namespace: ${{ github.event.inputs.namespace || 'marketplace-dev' }}
+      namespace: ${{ env.DEPLOY_NAMESPACE }}
       overlay: dev
       deploy: true
       build_images: true
@@ -47,6 +52,6 @@ jobs:
       validate_k8s_all: false
       policy_check: true
       canary_checks: false
-      create_namespace: ${{ github.event.inputs.create_namespace != '' && github.event.inputs.create_namespace || true }}
-      ref: ${{ github.event.inputs.ref }}
+      create_namespace: ${{ env.CREATE_NAMESPACE }}
+      ref: ${{ env.DEPLOY_REF }}
     secrets: inherit
