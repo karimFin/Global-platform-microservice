@@ -1,0 +1,377 @@
+name: Reusable CI/CD
+
+on:
+  workflow_call:
+    inputs:
+      environment_name:
+        required: true
+        type: string
+      namespace:
+        required: true
+        type: string
+      overlay:
+        required: true
+        type: string
+      deploy:
+        required: true
+        type: boolean
+        default: false
+      build_images:
+        required: true
+        type: boolean
+        default: false
+      push_images:
+        required: true
+        type: boolean
+        default: false
+      sign_images:
+        required: true
+        type: boolean
+        default: false
+      run_tests:
+        required: true
+        type: boolean
+        default: true
+      run_frontend:
+        required: true
+        type: boolean
+        default: true
+      validate_k8s:
+        required: true
+        type: boolean
+        default: true
+      validate_k8s_all:
+        required: true
+        type: boolean
+        default: false
+      policy_check:
+        required: true
+        type: boolean
+        default: false
+      canary_checks:
+        required: true
+        type: boolean
+        default: false
+      create_namespace:
+        required: true
+        type: boolean
+        default: false
+      ref:
+        required: false
+        type: string
+        default: ""
+
+env:
+  REGISTRY: ghcr.io
+  REPO: ${{ github.repository }}
+
+jobs:
+  meta:
+    runs-on: ubuntu-latest
+    outputs:
+      sha: ${{ steps.meta.outputs.sha }}
+      repo_lower: ${{ steps.meta.outputs.repo_lower }}
+    steps:
+      - name: Set metadata
+        id: meta
+        run: |
+          SHA_INPUT="${{ inputs.ref }}"
+          if [ -z "$SHA_INPUT" ]; then
+            SHA_INPUT="${{ github.sha }}"
+          fi
+          echo "sha=$SHA_INPUT" >> "$GITHUB_OUTPUT"
+          echo "repo_lower=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
+
+  lint-test:
+    runs-on: ubuntu-latest
+    if: ${{ inputs.run_tests }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm ci
+      - name: Lint (ESLint)
+        run: npm run lint
+      - name: Unit tests (matrix)
+        run: |
+          for svc in api-gateway identity seller catalog search pricing inventory cart checkout payments orders fulfillment notifications reviews analytics; do
+            echo "Testing $svc"
+            (cd services/$svc && npm ci && npm test)
+          done
+      - name: Frontend install
+        if: ${{ inputs.run_frontend }}
+        run: npm --prefix frontend install
+      - name: Frontend lint
+        if: ${{ inputs.run_frontend }}
+        run: npm --prefix frontend run lint
+      - name: Frontend format check
+        if: ${{ inputs.run_frontend }}
+        run: npm --prefix frontend run format
+      - name: Frontend build
+        if: ${{ inputs.run_frontend }}
+        run: npm --prefix frontend run build
+
+  build-scan-push:
+    runs-on: ubuntu-latest
+    needs: meta
+    if: ${{ inputs.build_images }}
+    permissions:
+      contents: read
+      packages: write
+      security-events: write
+      id-token: write
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [api-gateway, web, identity, seller, catalog, search, pricing, inventory, cart, checkout, payments, orders, fulfillment, notifications, reviews, analytics]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set image repo
+        run: echo "REPO_LOWER=${{ needs.meta.outputs.repo_lower }}" >> $GITHUB_ENV
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Login to GHCR
+        if: ${{ inputs.push_images }}
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and push image
+        uses: docker/build-push-action@v5
+        with:
+          context: ${{ matrix.service == 'web' && './frontend' || format('./services/{0}', matrix.service) }}
+          push: ${{ inputs.push_images }}
+          tags: ${{ env.REGISTRY }}/${{ env.REPO_LOWER }}/${{ matrix.service }}:${{ needs.meta.outputs.sha }}
+          platforms: linux/amd64
+      - name: Generate SBOM (Syft)
+        if: ${{ inputs.push_images }}
+        uses: anchore/sbom-action@v0
+        with:
+          image: ${{ env.REGISTRY }}/${{ env.REPO_LOWER }}/${{ matrix.service }}:${{ needs.meta.outputs.sha }}
+          output-file: sbom-${{ matrix.service }}.spdx.json
+          format: spdx-json
+      - name: Upload SBOM artifact
+        if: ${{ inputs.push_images }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-${{ matrix.service }}
+          path: sbom-${{ matrix.service }}.spdx.json
+      - name: Trivy scan
+        if: ${{ inputs.push_images }}
+        uses: aquasecurity/trivy-action@0.19.0
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ env.REPO_LOWER }}/${{ matrix.service }}:${{ needs.meta.outputs.sha }}
+          format: table
+          exit-code: '1'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+      - name: Install cosign
+        if: ${{ inputs.push_images && inputs.sign_images }}
+        uses: sigstore/cosign-installer@v3
+      - name: Cosign sign
+        if: ${{ inputs.push_images && inputs.sign_images }}
+        run: cosign sign --yes ${{ env.REGISTRY }}/${{ env.REPO_LOWER }}/${{ matrix.service }}:${{ needs.meta.outputs.sha }}
+      - name: Cosign attest SBOM
+        if: ${{ inputs.push_images && inputs.sign_images }}
+        run: cosign attest --yes --predicate sbom-${{ matrix.service }}.spdx.json --type spdxjson ${{ env.REGISTRY }}/${{ env.REPO_LOWER }}/${{ matrix.service }}:${{ needs.meta.outputs.sha }}
+
+  validate-k8s:
+    runs-on: ubuntu-latest
+    if: ${{ inputs.validate_k8s && !inputs.validate_k8s_all }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: imranismail/setup-kustomize@v2
+      - name: Kustomize build
+        run: kustomize build platform/k8s/overlays/${{ inputs.overlay }} > /dev/null
+
+  validate-k8s-all:
+    runs-on: ubuntu-latest
+    if: ${{ inputs.validate_k8s_all }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: imranismail/setup-kustomize@v2
+      - name: Kustomize build (dev)
+        run: kustomize build platform/k8s/overlays/dev > /dev/null
+      - name: Kustomize build (prod)
+        run: kustomize build platform/k8s/overlays/prod > /dev/null
+
+  policy-check:
+    runs-on: ubuntu-latest
+    if: ${{ inputs.policy_check }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: imranismail/setup-kustomize@v2
+      - name: Detect policy dir
+        run: |
+          POLICY_DIR=""
+          for d in policy policies opa gatekeeper kyverno; do
+            if [ -d "$d" ]; then
+              POLICY_DIR="$d"
+              break
+            fi
+          done
+          echo "POLICY_DIR=$POLICY_DIR" >> "$GITHUB_ENV"
+      - name: Install conftest
+        if: ${{ env.POLICY_DIR != '' }}
+        run: |
+          curl -L -o conftest.tar.gz https://github.com/open-policy-agent/conftest/releases/download/v0.56.0/conftest_0.56.0_Linux_x86_64.tar.gz
+          tar -xzf conftest.tar.gz conftest
+          chmod +x conftest
+      - name: Policy check overlays
+        if: ${{ env.POLICY_DIR != '' && inputs.validate_k8s_all }}
+        run: |
+          kustomize build platform/k8s/overlays/dev > /tmp/kustomize-dev.yaml
+          ./conftest test /tmp/kustomize-dev.yaml -p "${POLICY_DIR}"
+          kustomize build platform/k8s/overlays/prod > /tmp/kustomize-prod.yaml
+          ./conftest test /tmp/kustomize-prod.yaml -p "${POLICY_DIR}"
+      - name: Policy check overlay
+        if: ${{ env.POLICY_DIR != '' && !inputs.validate_k8s_all }}
+        run: |
+          kustomize build platform/k8s/overlays/${{ inputs.overlay }} > /tmp/kustomize.yaml
+          ./conftest test /tmp/kustomize.yaml -p "${POLICY_DIR}"
+
+  deploy-dev:
+    runs-on: ubuntu-latest
+    needs: [meta, build-scan-push, validate-k8s, policy-check]
+    if: ${{ inputs.deploy && inputs.environment_name == 'dev' && secrets.KUBE_CONFIG_DEV != '' }}
+    environment: dev
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set image repo
+        run: echo "REPO_LOWER=${{ needs.meta.outputs.repo_lower }}" >> $GITHUB_ENV
+      - name: Install kubectl & kustomize
+        uses: azure/setup-kubectl@v4
+        with:
+          version: 'v1.30.2'
+      - uses: imranismail/setup-kustomize@v2
+      - name: Configure kubeconfig
+        run: |
+          echo "${KUBE_CONFIG_DEV}" | base64 -d > $HOME/.kube/config
+        env:
+          KUBE_CONFIG_DEV: ${{ secrets.KUBE_CONFIG_DEV }}
+      - name: Create namespace
+        if: ${{ inputs.create_namespace }}
+        run: kubectl get namespace ${{ inputs.namespace }} || kubectl create namespace ${{ inputs.namespace }}
+      - name: Prepare kustomize images
+        run: |
+          cd platform/k8s/overlays/${{ inputs.overlay }}
+          kustomize edit set image api-gateway=${{ env.REGISTRY }}/${{ env.REPO_LOWER }}/api-gateway:${{ needs.meta.outputs.sha }}
+          kustomize edit set image web=${{ env.REGISTRY }}/${{ env.REPO_LOWER }}/web:${{ needs.meta.outputs.sha }}
+          kustomize edit set image identity=${{ env.REGISTRY }}/${{ env.REPO_LOWER }}/identity:${{ needs.meta.outputs.sha }}
+          kustomize edit set image seller=${{ env.REGISTRY }}/${{ env.REPO_LOWER }}/seller:${{ needs.meta.outputs.sha }}
+          kustomize edit set image catalog=${{ env.REGISTRY }}/${{ env.REPO_LOWER }}/catalog:${{ needs.meta.outputs.sha }}
+          kustomize edit set image search=${{ env.REGISTRY }}/${{ env.REPO_LOWER }}/search:${{ needs.meta.outputs.sha }}
+          kustomize edit set image pricing=${{ env.REGISTRY }}/${{ env.REPO_LOWER }}/pricing:${{ needs.meta.outputs.sha }}
+          kustomize edit set image inventory=${{ env.REGISTRY }}/${{ env.REPO_LOWER }}/inventory:${{ needs.meta.outputs.sha }}
+          kustomize edit set image cart=${{ env.REGISTRY }}/${{ env.REPO_LOWER }}/cart:${{ needs.meta.outputs.sha }}
+          kustomize edit set image checkout=${{ env.REGISTRY }}/${{ env.REPO_LOWER }}/checkout:${{ needs.meta.outputs.sha }}
+          kustomize edit set image payments=${{ env.REGISTRY }}/${{ env.REPO_LOWER }}/payments:${{ needs.meta.outputs.sha }}
+          kustomize edit set image orders=${{ env.REGISTRY }}/${{ env.REPO_LOWER }}/orders:${{ needs.meta.outputs.sha }}
+          kustomize edit set image fulfillment=${{ env.REGISTRY }}/${{ env.REPO_LOWER }}/fulfillment:${{ needs.meta.outputs.sha }}
+          kustomize edit set image notifications=${{ env.REGISTRY }}/${{ env.REPO_LOWER }}/notifications:${{ needs.meta.outputs.sha }}
+          kustomize edit set image reviews=${{ env.REGISTRY }}/${{ env.REPO_LOWER }}/reviews:${{ needs.meta.outputs.sha }}
+          kustomize edit set image analytics=${{ env.REGISTRY }}/${{ env.REPO_LOWER }}/analytics:${{ needs.meta.outputs.sha }}
+      - name: Apply dev overlay
+        run: kubectl apply -k platform/k8s/overlays/${{ inputs.overlay }}
+      - name: Wait for rollouts
+        run: |
+          for d in api-gateway web identity seller catalog search pricing inventory cart checkout payments orders fulfillment notifications reviews analytics; do
+            kubectl rollout status deployment/$d -n ${{ inputs.namespace }} --timeout=180s || exit 1
+          done
+
+  canary-prod:
+    runs-on: ubuntu-latest
+    needs: [meta, build-scan-push, validate-k8s, policy-check]
+    if: ${{ inputs.deploy && inputs.environment_name == 'prod' && secrets.KUBE_CONFIG_PROD != '' }}
+    environment: prod
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set image repo
+        run: echo "REPO_LOWER=${{ needs.meta.outputs.repo_lower }}" >> $GITHUB_ENV
+      - name: Install kubectl & kustomize
+        uses: azure/setup-kubectl@v4
+        with:
+          version: 'v1.30.2'
+      - uses: imranismail/setup-kustomize@v2
+      - name: Configure kubeconfig
+        run: |
+          echo "${KUBE_CONFIG_PROD}" | base64 -d > $HOME/.kube/config
+        env:
+          KUBE_CONFIG_PROD: ${{ secrets.KUBE_CONFIG_PROD }}
+      - name: Create namespace
+        if: ${{ inputs.create_namespace }}
+        run: kubectl get namespace ${{ inputs.namespace }} || kubectl create namespace ${{ inputs.namespace }}
+      - name: Canary on api-gateway
+        run: |
+          cd platform/k8s/overlays/${{ inputs.overlay }}
+          kustomize edit set image api-gateway=${{ env.REGISTRY }}/${{ env.REPO_LOWER }}/api-gateway:${{ needs.meta.outputs.sha }}
+          kubectl apply -k .
+          set +e
+          kubectl rollout status deployment/api-gateway -n ${{ inputs.namespace }} --timeout=180s
+          RC=$?
+          if [ $RC -ne 0 ]; then
+            kubectl rollout undo deployment/api-gateway -n ${{ inputs.namespace }}
+            exit 1
+          fi
+
+  canary-check:
+    runs-on: ubuntu-latest
+    needs: [canary-prod, meta]
+    if: ${{ inputs.canary_checks && inputs.environment_name == 'prod' && secrets.KUBE_CONFIG_PROD != '' }}
+    steps:
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: 'v1.30.2'
+      - name: Configure kubeconfig
+        run: |
+          echo "${KUBE_CONFIG_PROD}" | base64 -d > $HOME/.kube/config
+        env:
+          KUBE_CONFIG_PROD: ${{ secrets.KUBE_CONFIG_PROD }}
+      - name: Canary load check
+        run: |
+          kubectl run canary-check --rm -i --restart=Never -n ${{ inputs.namespace }} --image=curlimages/curl:8.5.0 -- /bin/sh -c "for i in \$(seq 1 50); do curl -sf http://api-gateway/health > /dev/null || exit 1; done"
+
+  promote-prod:
+    runs-on: ubuntu-latest
+    needs: [canary-check, meta]
+    if: ${{ inputs.deploy && inputs.environment_name == 'prod' && secrets.KUBE_CONFIG_PROD != '' }}
+    environment: prod
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set image repo
+        run: echo "REPO_LOWER=${{ needs.meta.outputs.repo_lower }}" >> $GITHUB_ENV
+      - name: Install kubectl & kustomize
+        uses: azure/setup-kubectl@v4
+        with:
+          version: 'v1.30.2'
+      - uses: imranismail/setup-kustomize@v2
+      - name: Configure kubeconfig
+        run: |
+          echo "${KUBE_CONFIG_PROD}" | base64 -d > $HOME/.kube/config
+        env:
+          KUBE_CONFIG_PROD: ${{ secrets.KUBE_CONFIG_PROD }}
+      - name: Promote all images
+        run: |
+          cd platform/k8s/overlays/${{ inputs.overlay }}
+          for img in api-gateway web identity seller catalog search pricing inventory cart checkout payments orders fulfillment notifications reviews analytics; do
+            kustomize edit set image $img=${{ env.REGISTRY }}/${{ env.REPO_LOWER }}/$img:${{ needs.meta.outputs.sha }}
+          done
+          kubectl apply -k .
+      - name: Wait for rollouts and auto-rollback on failure
+        run: |
+          set +e
+          FAILED=0
+          for d in api-gateway web identity seller catalog search pricing inventory cart checkout payments orders fulfillment notifications reviews analytics; do
+            kubectl rollout status deployment/$d -n ${{ inputs.namespace }} --timeout=180s
+            RC=$?
+            if [ $RC -ne 0 ]; then
+              kubectl rollout undo deployment/$d -n ${{ inputs.namespace }}
+              FAILED=1
+            fi
+          done
+          exit $FAILED
