@@ -42,6 +42,8 @@ jobs:
         service: [api-gateway, web, identity, seller, catalog, search, pricing, inventory, cart, checkout, payments, orders, fulfillment, notifications, reviews, analytics]
     steps:
       - uses: actions/checkout@v4
+      - name: Set image repo
+        run: echo "REPO_LOWER=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
       - name: Set up Docker Buildx
