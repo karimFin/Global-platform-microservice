@@ -16,13 +16,12 @@ on:
           - prod
       ref:
         description: "Git ref to deploy"
-        required: true
-        default: ${{ github.sha }}
+        required: false
+        default: ""
 
 env:
   REGISTRY: ghcr.io
   REPO: ${{ github.repository }}
-  REPO_LOWER: ${{ toLower(github.repository) }}
 
 jobs:
   deploy-dev:
@@ -33,6 +32,8 @@ jobs:
       SHA: ${{ github.event.inputs.ref || github.sha }}
     steps:
       - uses: actions/checkout@v4
+      - name: Set image repo
+        run: echo "REPO_LOWER=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
       - name: Install kubectl & kustomize
         uses: azure/setup-kubectl@v4
         with:
@@ -80,6 +81,8 @@ jobs:
       SHA: ${{ github.event.inputs.ref || github.sha }}
     steps:
       - uses: actions/checkout@v4
+      - name: Set image repo
+        run: echo "REPO_LOWER=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
       - name: Install kubectl & kustomize
         uses: azure/setup-kubectl@v4
         with:
@@ -113,6 +116,8 @@ jobs:
       SHA: ${{ github.event.inputs.ref || github.sha }}
     steps:
       - uses: actions/checkout@v4
+      - name: Set image repo
+        run: echo "REPO_LOWER=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
       - name: Install kubectl & kustomize
         uses: azure/setup-kubectl@v4
         with:
