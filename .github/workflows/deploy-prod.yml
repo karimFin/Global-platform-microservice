@@ -28,12 +28,6 @@ permissions:
   security-events: write
   id-token: write
 
-env:
-  DEPLOY_REF: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.ref || '' }}
-  DEPLOY_NAMESPACE: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.namespace || 'marketplace-prod' }}
-  CREATE_NAMESPACE: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.create_namespace == 'true' || true }}
-  CANARY_CHECKS: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.canary_checks == 'true' || true }}
-
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -43,7 +37,7 @@ jobs:
     uses: ./.github/workflows/reusable-cicd.yml
     with:
       environment_name: prod
-      namespace: ${{ env.DEPLOY_NAMESPACE }}
+      namespace: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.namespace || 'marketplace-prod' }}
       overlay: prod
       deploy: true
       build_images: true
@@ -54,7 +48,7 @@ jobs:
       validate_k8s: true
       validate_k8s_all: false
       policy_check: true
-      canary_checks: ${{ env.CANARY_CHECKS }}
-      create_namespace: ${{ env.CREATE_NAMESPACE }}
-      ref: ${{ env.DEPLOY_REF }}
+      canary_checks: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.canary_checks == 'true' || true }}
+      create_namespace: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.create_namespace == 'true' || true }}
+      ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.ref || '' }}
     secrets: inherit
