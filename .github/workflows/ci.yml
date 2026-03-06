@@ -31,4 +31,3 @@ jobs:
       policy_check: true
       canary_checks: false
       create_namespace: false
-    secrets: inherit
