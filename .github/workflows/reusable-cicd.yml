@@ -3,8 +3,6 @@ name: Reusable CI/CD
 on:
   workflow_call:
     secrets:
-      GHCR_TOKEN:
-        required: false
       KUBE_CONFIG_DEV:
         required: false
       KUBE_CONFIG_PROD:
@@ -146,7 +144,7 @@ jobs:
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
-          password: ${{ secrets.GHCR_TOKEN || secrets.GITHUB_TOKEN }}
+          password: ${{ secrets.GITHUB_TOKEN }}
       - name: Build and push image
         uses: docker/build-push-action@v5
         with:

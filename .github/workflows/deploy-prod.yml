@@ -51,7 +51,4 @@ jobs:
       canary_checks: ${{ github.event.inputs.canary_checks != '' && github.event.inputs.canary_checks || true }}
       create_namespace: ${{ github.event.inputs.create_namespace != '' && github.event.inputs.create_namespace || true }}
       ref: ${{ github.event.inputs.ref }}
-    secrets:
-      GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
-      KUBE_CONFIG_DEV: ${{ secrets.KUBE_CONFIG_DEV }}
-      KUBE_CONFIG_PROD: ${{ secrets.KUBE_CONFIG_PROD }}
+    secrets: inherit
