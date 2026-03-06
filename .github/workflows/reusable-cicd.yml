@@ -2,6 +2,11 @@ name: Reusable CI/CD
 
 on:
   workflow_call:
+    secrets:
+      KUBE_CONFIG_DEV:
+        required: false
+      KUBE_CONFIG_PROD:
+        required: false
     inputs:
       environment_name:
         required: true
