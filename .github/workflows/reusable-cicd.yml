@@ -265,6 +265,7 @@ jobs:
       - uses: imranismail/setup-kustomize@v2
       - name: Configure kubeconfig
         run: |
+          mkdir -p $HOME/.kube
           echo "${KUBE_CONFIG_DEV}" | base64 -d > $HOME/.kube/config
         env:
           KUBE_CONFIG_DEV: ${{ secrets.KUBE_CONFIG_DEV }}
@@ -322,6 +323,7 @@ jobs:
       - uses: imranismail/setup-kustomize@v2
       - name: Configure kubeconfig
         run: |
+          mkdir -p $HOME/.kube
           echo "${KUBE_CONFIG_PROD}" | base64 -d > $HOME/.kube/config
         env:
           KUBE_CONFIG_PROD: ${{ secrets.KUBE_CONFIG_PROD }}
@@ -360,6 +362,7 @@ jobs:
           version: 'v1.30.2'
       - name: Configure kubeconfig
         run: |
+          mkdir -p $HOME/.kube
           echo "${KUBE_CONFIG_PROD}" | base64 -d > $HOME/.kube/config
         env:
           KUBE_CONFIG_PROD: ${{ secrets.KUBE_CONFIG_PROD }}
@@ -391,6 +394,7 @@ jobs:
       - uses: imranismail/setup-kustomize@v2
       - name: Configure kubeconfig
         run: |
+          mkdir -p $HOME/.kube
           echo "${KUBE_CONFIG_PROD}" | base64 -d > $HOME/.kube/config
         env:
           KUBE_CONFIG_PROD: ${{ secrets.KUBE_CONFIG_PROD }}
