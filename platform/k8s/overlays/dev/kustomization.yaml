@@ -179,3 +179,17 @@ patches:
         name: web
       spec:
         replicas: 1
+  - patch: |-
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: web
+      spec:
+        type: LoadBalancer
+  - patch: |-
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: api-gateway
+      spec:
+        type: LoadBalancer

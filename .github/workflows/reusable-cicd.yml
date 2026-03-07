@@ -293,6 +293,11 @@ jobs:
           kustomize edit set image analytics=${{ env.REGISTRY }}/${{ env.REPO_LOWER }}/analytics:${{ needs.meta.outputs.sha }}
       - name: Apply dev overlay
         run: kubectl apply -k platform/k8s/overlays/${{ inputs.overlay }}
+      - name: Show external services
+        run: |
+          kubectl get svc web api-gateway -n ${{ inputs.namespace }} -o wide
+          kubectl get svc web -n ${{ inputs.namespace }} -o jsonpath='{.status.loadBalancer.ingress[0].ip}{"\n"}'
+          kubectl get svc api-gateway -n ${{ inputs.namespace }} -o jsonpath='{.status.loadBalancer.ingress[0].ip}{"\n"}'
       - name: Wait for rollouts
         run: |
           for d in api-gateway web identity seller catalog search pricing inventory cart checkout payments orders fulfillment notifications reviews analytics; do
