@@ -301,17 +301,21 @@ jobs:
           } > ~/.oci/config
 
           KEY_FILE=~/.oci/oci_api_key.pem
-          if printf '%s' "${OCI_CLI_KEY_CONTENT}" | grep -q "BEGIN .*PRIVATE KEY"; then
-            printf '%b' "${OCI_CLI_KEY_CONTENT}" > "$KEY_FILE"
+          RAW_KEY="${OCI_CLI_KEY_CONTENT}"
+          RAW_KEY_STRIPPED=$(printf '%s' "$RAW_KEY" | tr -d '\r')
+          if printf '%s' "$RAW_KEY_STRIPPED" | grep -q "BEGIN .*PRIVATE KEY"; then
+            printf '%s\n' "$RAW_KEY_STRIPPED" > "$KEY_FILE"
+          elif printf '%b' "$RAW_KEY_STRIPPED" | grep -q "BEGIN .*PRIVATE KEY"; then
+            printf '%b' "$RAW_KEY_STRIPPED" > "$KEY_FILE"
+          elif printf '%s' "$RAW_KEY_STRIPPED" | base64 -d > "$KEY_FILE" 2>/dev/null; then
+            :
+          elif printf '%b' "$RAW_KEY_STRIPPED" | base64 -d > "$KEY_FILE" 2>/dev/null; then
+            :
           else
-            printf '%s' "${OCI_CLI_KEY_CONTENT}" | base64 -d > "$KEY_FILE" 2>/dev/null || {
-              echo "::error::OCI_CLI_KEY_CONTENT must be PEM text or base64-encoded PEM"
-              exit 1
-            }
+            printf '%b' "$RAW_KEY_STRIPPED" > "$KEY_FILE"
           fi
-          if ! grep -q "BEGIN .*PRIVATE KEY" "$KEY_FILE"; then
-            echo "::error::OCI_CLI_KEY_CONTENT did not produce a valid PEM private key"
-            exit 1
+          if ! grep -Eq "BEGIN (RSA |EC |OPENSSH |ENCRYPTED |)?PRIVATE KEY" "$KEY_FILE"; then
+            echo "::warning::OCI_CLI_KEY_CONTENT format is unusual; validating with OCI CLI"
           fi
 
           chmod 600 ~/.oci/config ~/.oci/oci_api_key.pem
@@ -481,17 +485,21 @@ jobs:
           } > ~/.oci/config
 
           KEY_FILE=~/.oci/oci_api_key.pem
-          if printf '%s' "${OCI_CLI_KEY_CONTENT}" | grep -q "BEGIN .*PRIVATE KEY"; then
-            printf '%b' "${OCI_CLI_KEY_CONTENT}" > "$KEY_FILE"
+          RAW_KEY="${OCI_CLI_KEY_CONTENT}"
+          RAW_KEY_STRIPPED=$(printf '%s' "$RAW_KEY" | tr -d '\r')
+          if printf '%s' "$RAW_KEY_STRIPPED" | grep -q "BEGIN .*PRIVATE KEY"; then
+            printf '%s\n' "$RAW_KEY_STRIPPED" > "$KEY_FILE"
+          elif printf '%b' "$RAW_KEY_STRIPPED" | grep -q "BEGIN .*PRIVATE KEY"; then
+            printf '%b' "$RAW_KEY_STRIPPED" > "$KEY_FILE"
+          elif printf '%s' "$RAW_KEY_STRIPPED" | base64 -d > "$KEY_FILE" 2>/dev/null; then
+            :
+          elif printf '%b' "$RAW_KEY_STRIPPED" | base64 -d > "$KEY_FILE" 2>/dev/null; then
+            :
           else
-            printf '%s' "${OCI_CLI_KEY_CONTENT}" | base64 -d > "$KEY_FILE" 2>/dev/null || {
-              echo "::error::OCI_CLI_KEY_CONTENT must be PEM text or base64-encoded PEM"
-              exit 1
-            }
+            printf '%b' "$RAW_KEY_STRIPPED" > "$KEY_FILE"
           fi
-          if ! grep -q "BEGIN .*PRIVATE KEY" "$KEY_FILE"; then
-            echo "::error::OCI_CLI_KEY_CONTENT did not produce a valid PEM private key"
-            exit 1
+          if ! grep -Eq "BEGIN (RSA |EC |OPENSSH |ENCRYPTED |)?PRIVATE KEY" "$KEY_FILE"; then
+            echo "::warning::OCI_CLI_KEY_CONTENT format is unusual; validating with OCI CLI"
           fi
 
           chmod 600 ~/.oci/config ~/.oci/oci_api_key.pem
@@ -634,17 +642,21 @@ jobs:
           } > ~/.oci/config
 
           KEY_FILE=~/.oci/oci_api_key.pem
-          if printf '%s' "${OCI_CLI_KEY_CONTENT}" | grep -q "BEGIN .*PRIVATE KEY"; then
-            printf '%b' "${OCI_CLI_KEY_CONTENT}" > "$KEY_FILE"
+          RAW_KEY="${OCI_CLI_KEY_CONTENT}"
+          RAW_KEY_STRIPPED=$(printf '%s' "$RAW_KEY" | tr -d '\r')
+          if printf '%s' "$RAW_KEY_STRIPPED" | grep -q "BEGIN .*PRIVATE KEY"; then
+            printf '%s\n' "$RAW_KEY_STRIPPED" > "$KEY_FILE"
+          elif printf '%b' "$RAW_KEY_STRIPPED" | grep -q "BEGIN .*PRIVATE KEY"; then
+            printf '%b' "$RAW_KEY_STRIPPED" > "$KEY_FILE"
+          elif printf '%s' "$RAW_KEY_STRIPPED" | base64 -d > "$KEY_FILE" 2>/dev/null; then
+            :
+          elif printf '%b' "$RAW_KEY_STRIPPED" | base64 -d > "$KEY_FILE" 2>/dev/null; then
+            :
           else
-            printf '%s' "${OCI_CLI_KEY_CONTENT}" | base64 -d > "$KEY_FILE" 2>/dev/null || {
-              echo "::error::OCI_CLI_KEY_CONTENT must be PEM text or base64-encoded PEM"
-              exit 1
-            }
+            printf '%b' "$RAW_KEY_STRIPPED" > "$KEY_FILE"
           fi
-          if ! grep -q "BEGIN .*PRIVATE KEY" "$KEY_FILE"; then
-            echo "::error::OCI_CLI_KEY_CONTENT did not produce a valid PEM private key"
-            exit 1
+          if ! grep -Eq "BEGIN (RSA |EC |OPENSSH |ENCRYPTED |)?PRIVATE KEY" "$KEY_FILE"; then
+            echo "::warning::OCI_CLI_KEY_CONTENT format is unusual; validating with OCI CLI"
           fi
 
           chmod 600 ~/.oci/config ~/.oci/oci_api_key.pem
@@ -755,17 +767,21 @@ jobs:
           } > ~/.oci/config
 
           KEY_FILE=~/.oci/oci_api_key.pem
-          if printf '%s' "${OCI_CLI_KEY_CONTENT}" | grep -q "BEGIN .*PRIVATE KEY"; then
-            printf '%b' "${OCI_CLI_KEY_CONTENT}" > "$KEY_FILE"
+          RAW_KEY="${OCI_CLI_KEY_CONTENT}"
+          RAW_KEY_STRIPPED=$(printf '%s' "$RAW_KEY" | tr -d '\r')
+          if printf '%s' "$RAW_KEY_STRIPPED" | grep -q "BEGIN .*PRIVATE KEY"; then
+            printf '%s\n' "$RAW_KEY_STRIPPED" > "$KEY_FILE"
+          elif printf '%b' "$RAW_KEY_STRIPPED" | grep -q "BEGIN .*PRIVATE KEY"; then
+            printf '%b' "$RAW_KEY_STRIPPED" > "$KEY_FILE"
+          elif printf '%s' "$RAW_KEY_STRIPPED" | base64 -d > "$KEY_FILE" 2>/dev/null; then
+            :
+          elif printf '%b' "$RAW_KEY_STRIPPED" | base64 -d > "$KEY_FILE" 2>/dev/null; then
+            :
           else
-            printf '%s' "${OCI_CLI_KEY_CONTENT}" | base64 -d > "$KEY_FILE" 2>/dev/null || {
-              echo "::error::OCI_CLI_KEY_CONTENT must be PEM text or base64-encoded PEM"
-              exit 1
-            }
+            printf '%b' "$RAW_KEY_STRIPPED" > "$KEY_FILE"
           fi
-          if ! grep -q "BEGIN .*PRIVATE KEY" "$KEY_FILE"; then
-            echo "::error::OCI_CLI_KEY_CONTENT did not produce a valid PEM private key"
-            exit 1
+          if ! grep -Eq "BEGIN (RSA |EC |OPENSSH |ENCRYPTED |)?PRIVATE KEY" "$KEY_FILE"; then
+            echo "::warning::OCI_CLI_KEY_CONTENT format is unusual; validating with OCI CLI"
           fi
 
           chmod 600 ~/.oci/config ~/.oci/oci_api_key.pem
