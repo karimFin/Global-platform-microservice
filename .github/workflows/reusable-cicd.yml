@@ -291,12 +291,16 @@ jobs:
           done
 
           mkdir -p ~/.oci
+          SAN_USER=$(printf '%s' "${OCI_CLI_USER}" | tr -d '\r' | sed -E 's/^[[:space:]]+|[[:space:]]+$//g; s/^"(.*)"$/\1/')
+          SAN_TENANCY=$(printf '%s' "${OCI_CLI_TENANCY}" | tr -d '\r' | sed -E 's/^[[:space:]]+|[[:space:]]+$//g; s/^"(.*)"$/\1/')
+          SAN_FINGERPRINT=$(printf '%s' "${OCI_CLI_FINGERPRINT}" | tr -d '\r' | sed -E 's/^[[:space:]]+|[[:space:]]+$//g; s/^"(.*)"$/\1/')
+          SAN_REGION=$(printf '%s' "${OCI_CLI_REGION}" | tr -d '\r' | sed -E 's/^[[:space:]]+|[[:space:]]+$//g; s/^"(.*)"$/\1/')
           {
             echo "[DEFAULT]"
-            echo "user=${OCI_CLI_USER}"
-            echo "fingerprint=${OCI_CLI_FINGERPRINT}"
-            echo "tenancy=${OCI_CLI_TENANCY}"
-            echo "region=${OCI_CLI_REGION}"
+            echo "user=${SAN_USER}"
+            echo "fingerprint=${SAN_FINGERPRINT}"
+            echo "tenancy=${SAN_TENANCY}"
+            echo "region=${SAN_REGION}"
             echo "key_file=~/.oci/oci_api_key.pem"
           } > ~/.oci/config
 
@@ -320,7 +324,7 @@ jobs:
 
           chmod 600 ~/.oci/config ~/.oci/oci_api_key.pem
           oci --version
-          oci iam region-subscription list --tenancy-id "${OCI_CLI_TENANCY}" --all > /dev/null
+          oci iam region-subscription list --tenancy-id "${SAN_TENANCY}" --all > /dev/null
 
       # ── Kubeconfig ──
       - name: Ensure dev kubeconfig secret exists
@@ -475,12 +479,16 @@ jobs:
           done
 
           mkdir -p ~/.oci
+          SAN_USER=$(printf '%s' "${OCI_CLI_USER}" | tr -d '\r' | sed -E 's/^[[:space:]]+|[[:space:]]+$//g; s/^"(.*)"$/\1/')
+          SAN_TENANCY=$(printf '%s' "${OCI_CLI_TENANCY}" | tr -d '\r' | sed -E 's/^[[:space:]]+|[[:space:]]+$//g; s/^"(.*)"$/\1/')
+          SAN_FINGERPRINT=$(printf '%s' "${OCI_CLI_FINGERPRINT}" | tr -d '\r' | sed -E 's/^[[:space:]]+|[[:space:]]+$//g; s/^"(.*)"$/\1/')
+          SAN_REGION=$(printf '%s' "${OCI_CLI_REGION}" | tr -d '\r' | sed -E 's/^[[:space:]]+|[[:space:]]+$//g; s/^"(.*)"$/\1/')
           {
             echo "[DEFAULT]"
-            echo "user=${OCI_CLI_USER}"
-            echo "fingerprint=${OCI_CLI_FINGERPRINT}"
-            echo "tenancy=${OCI_CLI_TENANCY}"
-            echo "region=${OCI_CLI_REGION}"
+            echo "user=${SAN_USER}"
+            echo "fingerprint=${SAN_FINGERPRINT}"
+            echo "tenancy=${SAN_TENANCY}"
+            echo "region=${SAN_REGION}"
             echo "key_file=~/.oci/oci_api_key.pem"
           } > ~/.oci/config
 
@@ -504,7 +512,7 @@ jobs:
 
           chmod 600 ~/.oci/config ~/.oci/oci_api_key.pem
           oci --version
-          oci iam region-subscription list --tenancy-id "${OCI_CLI_TENANCY}" --all > /dev/null
+          oci iam region-subscription list --tenancy-id "${SAN_TENANCY}" --all > /dev/null
 
       - name: Ensure prod kubeconfig
         env:
@@ -632,12 +640,16 @@ jobs:
           done
 
           mkdir -p ~/.oci
+          SAN_USER=$(printf '%s' "${OCI_CLI_USER}" | tr -d '\r' | sed -E 's/^[[:space:]]+|[[:space:]]+$//g; s/^"(.*)"$/\1/')
+          SAN_TENANCY=$(printf '%s' "${OCI_CLI_TENANCY}" | tr -d '\r' | sed -E 's/^[[:space:]]+|[[:space:]]+$//g; s/^"(.*)"$/\1/')
+          SAN_FINGERPRINT=$(printf '%s' "${OCI_CLI_FINGERPRINT}" | tr -d '\r' | sed -E 's/^[[:space:]]+|[[:space:]]+$//g; s/^"(.*)"$/\1/')
+          SAN_REGION=$(printf '%s' "${OCI_CLI_REGION}" | tr -d '\r' | sed -E 's/^[[:space:]]+|[[:space:]]+$//g; s/^"(.*)"$/\1/')
           {
             echo "[DEFAULT]"
-            echo "user=${OCI_CLI_USER}"
-            echo "fingerprint=${OCI_CLI_FINGERPRINT}"
-            echo "tenancy=${OCI_CLI_TENANCY}"
-            echo "region=${OCI_CLI_REGION}"
+            echo "user=${SAN_USER}"
+            echo "fingerprint=${SAN_FINGERPRINT}"
+            echo "tenancy=${SAN_TENANCY}"
+            echo "region=${SAN_REGION}"
             echo "key_file=~/.oci/oci_api_key.pem"
           } > ~/.oci/config
 
@@ -661,7 +673,7 @@ jobs:
 
           chmod 600 ~/.oci/config ~/.oci/oci_api_key.pem
           oci --version
-          oci iam region-subscription list --tenancy-id "${OCI_CLI_TENANCY}" --all > /dev/null
+          oci iam region-subscription list --tenancy-id "${SAN_TENANCY}" --all > /dev/null
 
       - name: Ensure prod kubeconfig
         env:
@@ -757,12 +769,16 @@ jobs:
           done
 
           mkdir -p ~/.oci
+          SAN_USER=$(printf '%s' "${OCI_CLI_USER}" | tr -d '\r' | sed -E 's/^[[:space:]]+|[[:space:]]+$//g; s/^"(.*)"$/\1/')
+          SAN_TENANCY=$(printf '%s' "${OCI_CLI_TENANCY}" | tr -d '\r' | sed -E 's/^[[:space:]]+|[[:space:]]+$//g; s/^"(.*)"$/\1/')
+          SAN_FINGERPRINT=$(printf '%s' "${OCI_CLI_FINGERPRINT}" | tr -d '\r' | sed -E 's/^[[:space:]]+|[[:space:]]+$//g; s/^"(.*)"$/\1/')
+          SAN_REGION=$(printf '%s' "${OCI_CLI_REGION}" | tr -d '\r' | sed -E 's/^[[:space:]]+|[[:space:]]+$//g; s/^"(.*)"$/\1/')
           {
             echo "[DEFAULT]"
-            echo "user=${OCI_CLI_USER}"
-            echo "fingerprint=${OCI_CLI_FINGERPRINT}"
-            echo "tenancy=${OCI_CLI_TENANCY}"
-            echo "region=${OCI_CLI_REGION}"
+            echo "user=${SAN_USER}"
+            echo "fingerprint=${SAN_FINGERPRINT}"
+            echo "tenancy=${SAN_TENANCY}"
+            echo "region=${SAN_REGION}"
             echo "key_file=~/.oci/oci_api_key.pem"
           } > ~/.oci/config
 
@@ -786,7 +802,7 @@ jobs:
 
           chmod 600 ~/.oci/config ~/.oci/oci_api_key.pem
           oci --version
-          oci iam region-subscription list --tenancy-id "${OCI_CLI_TENANCY}" --all > /dev/null
+          oci iam region-subscription list --tenancy-id "${SAN_TENANCY}" --all > /dev/null
 
       - name: Ensure prod kubeconfig
         env:
