@@ -332,8 +332,7 @@ jobs:
           KUBE_CONFIG_DEV: ${{ secrets.KUBE_CONFIG_DEV }}
         run: |
           if [ -z "$KUBE_CONFIG_DEV" ]; then
-            echo "::error::KUBE_CONFIG_DEV secret is not set"
-            exit 1
+            echo "::warning::KUBE_CONFIG_DEV secret is not set; kubeconfig will be generated from OCI"
           fi
 
       - name: Set image repo
@@ -354,69 +353,98 @@ jobs:
           RAW_FILE=$HOME/.kube/config.raw
           DECODED_FILE=$HOME/.kube/config.dec
 
-          printf '%s' "${KUBE_CONFIG_DEV}" > "$RAW_FILE"
+          ensure_kubeconfig_from_oci() {
+            CLUSTER_OCID=$(oci ce cluster list --compartment-id "${OCI_CLI_TENANCY}" --all --query 'data[?name==`gmp-oke-dev` && "lifecycle-state"==`ACTIVE`] | [-1].id' --raw-output 2>/dev/null || true)
+            if [ -z "$CLUSTER_OCID" ] || [ "$CLUSTER_OCID" = "null" ]; then
+              echo "::error::No ACTIVE gmp-oke-dev cluster found in tenancy"
+              exit 1
+            fi
+            oci ce cluster create-kubeconfig --cluster-id "$CLUSTER_OCID" --file "$CONFIG_FILE" --region "${OCI_CLI_REGION}" --token-version 2.0.0 --kube-endpoint PUBLIC_ENDPOINT
+          }
 
-          # Decode: try raw YAML → single base64 → double base64
-          if grep -q "apiVersion:" "$RAW_FILE"; then
-            cp "$RAW_FILE" "$CONFIG_FILE"
-          else
-            base64 -d "$RAW_FILE" > "$DECODED_FILE" 2>/dev/null || true
-            if grep -q "apiVersion:" "$DECODED_FILE"; then
-              cp "$DECODED_FILE" "$CONFIG_FILE"
+          KCFG_OK=false
+          if [ -n "${KUBE_CONFIG_DEV}" ]; then
+            printf '%s' "${KUBE_CONFIG_DEV}" > "$RAW_FILE"
+            if grep -q "apiVersion:" "$RAW_FILE"; then
+              cp "$RAW_FILE" "$CONFIG_FILE"
             else
-              base64 -d "$DECODED_FILE" > "$CONFIG_FILE" 2>/dev/null || true
-              if ! grep -q "apiVersion:" "$CONFIG_FILE"; then
-                echo "::error::KUBE_CONFIG_DEV could not be decoded to valid kubeconfig YAML"
-                exit 1
+              base64 -d "$RAW_FILE" > "$DECODED_FILE" 2>/dev/null || true
+              if grep -q "apiVersion:" "$DECODED_FILE"; then
+                cp "$DECODED_FILE" "$CONFIG_FILE"
+              else
+                base64 -d "$DECODED_FILE" > "$CONFIG_FILE" 2>/dev/null || true
               fi
             fi
+            if grep -q "apiVersion:" "$CONFIG_FILE" 2>/dev/null; then
+              KCFG_OK=true
+            fi
+          fi
+
+          if [ "$KCFG_OK" = false ]; then
+            ensure_kubeconfig_from_oci
           fi
 
           chmod 600 "$CONFIG_FILE"
           echo "KUBECONFIG=$CONFIG_FILE" >> $GITHUB_ENV
 
-          # Validate current-context
           CTX=$(kubectl config current-context 2>/dev/null || true)
           if [ -z "$CTX" ]; then
-            echo "::error::KUBE_CONFIG_DEV has no current-context set"
-            echo "Available contexts:"
-            kubectl config get-contexts --no-headers 2>/dev/null || true
+            ensure_kubeconfig_from_oci
+            CTX=$(kubectl config current-context 2>/dev/null || true)
+          fi
+          if [ -z "$CTX" ]; then
+            echo "::error::Kubeconfig has no current-context set"
             exit 1
           fi
           echo "Current context: $CTX"
 
-          # Validate cluster reference
           CLUSTER=$(kubectl config view --minify -o jsonpath='{.contexts[0].context.cluster}' 2>/dev/null || true)
           if [ -z "$CLUSTER" ]; then
-            echo "::error::Context '$CTX' has no cluster assigned. Re-generate kubeconfig from OCI OKE and update KUBE_CONFIG_DEV."
-            kubectl config get-contexts --no-headers 2>/dev/null || true
+            ensure_kubeconfig_from_oci
+            CLUSTER=$(kubectl config view --minify -o jsonpath='{.contexts[0].context.cluster}' 2>/dev/null || true)
+          fi
+          if [ -z "$CLUSTER" ]; then
+            echo "::error::Context '$CTX' has no cluster assigned"
             exit 1
           fi
           echo "Cluster: $CLUSTER"
 
-          # Validate server URL
-          SERVER=$(kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}' 2>/dev/null || true)
+          SERVER=$(kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}' 2>/dev/null | tr -d '`' | xargs || true)
           case "$SERVER" in
             ""|http://localhost:8080|http://127.0.0.1:8080|http://[::1]:8080|https://localhost:*|https://127.0.0.1:*|https://[::1]:*)
-              echo "::error::Cluster '$CLUSTER' has invalid server: '${SERVER:-<empty>}'"
+              ensure_kubeconfig_from_oci
+              SERVER=$(kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}' 2>/dev/null | tr -d '`' | xargs || true)
+              ;;
+          esac
+          case "$SERVER" in
+            ""|http://localhost:8080|http://127.0.0.1:8080|http://[::1]:8080|https://localhost:*|https://127.0.0.1:*|https://[::1]:*)
+              echo "::error::Cluster '$CLUSTER' has invalid server after OCI kubeconfig generation: '${SERVER:-<empty>}'"
               exit 1
               ;;
           esac
+          kubectl config set-cluster "$CLUSTER" --server="$SERVER" >/dev/null
           echo "Server: $SERVER"
 
-          # Validate user reference
           USER=$(kubectl config view --minify -o jsonpath='{.contexts[0].context.user}' 2>/dev/null || true)
           if [ -z "$USER" ]; then
-            echo "::error::Context '$CTX' has no user assigned. Run: kubectl config set-context $CTX --user=<NAME>"
+            ensure_kubeconfig_from_oci
+            USER=$(kubectl config view --minify -o jsonpath='{.contexts[0].context.user}' 2>/dev/null || true)
+          fi
+          if [ -z "$USER" ]; then
+            echo "::error::Context '$CTX' has no user assigned"
             exit 1
           fi
           echo "User: $USER"
 
-          # Test cluster connectivity
           echo "Testing cluster connectivity..."
-          kubectl cluster-info
+          if ! kubectl --request-timeout=20s cluster-info; then
+            ensure_kubeconfig_from_oci
+            kubectl --request-timeout=20s cluster-info
+          fi
         env:
           KUBE_CONFIG_DEV: ${{ secrets.KUBE_CONFIG_DEV }}
+          OCI_CLI_TENANCY: ${{ secrets.OCI_CLI_TENANCY }}
+          OCI_CLI_REGION: ${{ secrets.OCI_CLI_REGION }}
 
       - name: Create namespace
         if: ${{ inputs.create_namespace }}
