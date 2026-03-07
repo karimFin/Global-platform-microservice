@@ -203,7 +203,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: imranismail/setup-kustomize@v2
         with:
-          kustomize-version: v5.4.2
+          kustomize-version: 5.4.2
       - name: Kustomize build
         run: kustomize build platform/k8s/overlays/${{ inputs.overlay }} > /dev/null
 
@@ -214,7 +214,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: imranismail/setup-kustomize@v2
         with:
-          kustomize-version: v5.4.2
+          kustomize-version: 5.4.2
       - name: Kustomize build (dev)
         run: kustomize build platform/k8s/overlays/dev > /dev/null
       - name: Kustomize build (prod)
@@ -227,7 +227,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: imranismail/setup-kustomize@v2
         with:
-          kustomize-version: v5.4.2
+          kustomize-version: 5.4.2
       - name: Detect policy dir
         run: |
           POLICY_DIR=""
@@ -337,7 +337,7 @@ jobs:
           version: 'v1.30.2'
       - uses: imranismail/setup-kustomize@v2
         with:
-          kustomize-version: v5.4.2
+          kustomize-version: 5.4.2
 
       - name: Configure kubeconfig
         run: |
@@ -516,7 +516,7 @@ jobs:
           version: 'v1.30.2'
       - uses: imranismail/setup-kustomize@v2
         with:
-          kustomize-version: v5.4.2
+          kustomize-version: 5.4.2
 
       - name: Configure kubeconfig
         run: |
@@ -790,7 +790,7 @@ jobs:
           version: 'v1.30.2'
       - uses: imranismail/setup-kustomize@v2
         with:
-          kustomize-version: v5.4.2
+          kustomize-version: 5.4.2
 
       - name: Configure kubeconfig
         run: |
