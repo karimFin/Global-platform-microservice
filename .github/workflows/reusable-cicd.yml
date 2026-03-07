@@ -266,7 +266,12 @@ jobs:
       - name: Configure kubeconfig
         run: |
           mkdir -p $HOME/.kube
-          echo "${KUBE_CONFIG_DEV}" | base64 -d > $HOME/.kube/config
+          echo "${KUBE_CONFIG_DEV}" | base64 -d > $HOME/.kube/config 2>/dev/null || true
+          if ! grep -q "apiVersion:" $HOME/.kube/config; then
+            echo "${KUBE_CONFIG_DEV}" > $HOME/.kube/config
+          fi
+          chmod 600 $HOME/.kube/config
+          echo "KUBECONFIG=$HOME/.kube/config" >> $GITHUB_ENV
         env:
           KUBE_CONFIG_DEV: ${{ secrets.KUBE_CONFIG_DEV }}
       - name: Create namespace
@@ -329,7 +334,12 @@ jobs:
       - name: Configure kubeconfig
         run: |
           mkdir -p $HOME/.kube
-          echo "${KUBE_CONFIG_PROD}" | base64 -d > $HOME/.kube/config
+          echo "${KUBE_CONFIG_PROD}" | base64 -d > $HOME/.kube/config 2>/dev/null || true
+          if ! grep -q "apiVersion:" $HOME/.kube/config; then
+            echo "${KUBE_CONFIG_PROD}" > $HOME/.kube/config
+          fi
+          chmod 600 $HOME/.kube/config
+          echo "KUBECONFIG=$HOME/.kube/config" >> $GITHUB_ENV
         env:
           KUBE_CONFIG_PROD: ${{ secrets.KUBE_CONFIG_PROD }}
       - name: Create namespace
@@ -368,7 +378,12 @@ jobs:
       - name: Configure kubeconfig
         run: |
           mkdir -p $HOME/.kube
-          echo "${KUBE_CONFIG_PROD}" | base64 -d > $HOME/.kube/config
+          echo "${KUBE_CONFIG_PROD}" | base64 -d > $HOME/.kube/config 2>/dev/null || true
+          if ! grep -q "apiVersion:" $HOME/.kube/config; then
+            echo "${KUBE_CONFIG_PROD}" > $HOME/.kube/config
+          fi
+          chmod 600 $HOME/.kube/config
+          echo "KUBECONFIG=$HOME/.kube/config" >> $GITHUB_ENV
         env:
           KUBE_CONFIG_PROD: ${{ secrets.KUBE_CONFIG_PROD }}
       - name: Canary load check
@@ -400,7 +415,12 @@ jobs:
       - name: Configure kubeconfig
         run: |
           mkdir -p $HOME/.kube
-          echo "${KUBE_CONFIG_PROD}" | base64 -d > $HOME/.kube/config
+          echo "${KUBE_CONFIG_PROD}" | base64 -d > $HOME/.kube/config 2>/dev/null || true
+          if ! grep -q "apiVersion:" $HOME/.kube/config; then
+            echo "${KUBE_CONFIG_PROD}" > $HOME/.kube/config
+          fi
+          chmod 600 $HOME/.kube/config
+          echo "KUBECONFIG=$HOME/.kube/config" >> $GITHUB_ENV
         env:
           KUBE_CONFIG_PROD: ${{ secrets.KUBE_CONFIG_PROD }}
       - name: Promote all images
