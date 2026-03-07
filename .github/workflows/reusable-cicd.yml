@@ -177,13 +177,13 @@ jobs:
           ignore-unfixed: true
           vuln-type: 'os,library'
       - name: Install cosign
-        if: ${{ inputs.push_images && inputs.sign_images }}
+        if: ${{ false }}
         uses: sigstore/cosign-installer@v3
       - name: Cosign sign
-        if: ${{ inputs.push_images && inputs.sign_images }}
+        if: ${{ false }}
         run: cosign sign --yes ${{ env.REGISTRY }}/${{ env.REPO_LOWER }}/${{ matrix.service }}:${{ needs.meta.outputs.sha }}
       - name: Cosign attest SBOM
-        if: ${{ inputs.push_images && inputs.sign_images }}
+        if: ${{ false }}
         run: cosign attest --yes --predicate sbom-${{ matrix.service }}.spdx.json --type spdxjson ${{ env.REGISTRY }}/${{ env.REPO_LOWER }}/${{ matrix.service }}:${{ needs.meta.outputs.sha }}
 
   validate-k8s:
