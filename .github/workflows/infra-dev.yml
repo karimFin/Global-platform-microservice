@@ -1,0 +1,87 @@
+name: Infra Dev
+
+on:
+  push:
+    branches:
+      - dev
+    paths:
+      - "infra/terraform/**"
+      - ".github/workflows/infra-dev.yml"
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "Terraform action"
+        required: true
+        default: "apply"
+        type: choice
+        options:
+          - apply
+          - destroy
+
+permissions:
+  contents: read
+
+concurrency:
+  group: infra-dev
+  cancel-in-progress: false
+
+jobs:
+  terraform-dev:
+    runs-on: ubuntu-latest
+    environment: dev
+    env:
+      TF_IN_AUTOMATION: true
+      TF_INPUT: 0
+      TF_VAR_tenancy_ocid: ${{ secrets.OCI_CLI_TENANCY }}
+      TF_VAR_user_ocid: ${{ secrets.OCI_CLI_USER }}
+      TF_VAR_fingerprint: ${{ secrets.OCI_CLI_FINGERPRINT }}
+      TF_VAR_region: ${{ secrets.OCI_CLI_REGION }}
+      TF_VAR_compartment_ocid: ${{ secrets.OCI_COMPARTMENT_OCID != '' && secrets.OCI_COMPARTMENT_OCID || secrets.OCI_CLI_TENANCY }}
+      TF_VAR_private_key_path: ~/.oci/oci_api_key.pem
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.5.7
+
+      - name: Configure OCI key
+        env:
+          OCI_CLI_KEY_CONTENT: ${{ secrets.OCI_CLI_KEY_CONTENT }}
+        run: |
+          if [ -z "$OCI_CLI_KEY_CONTENT" ]; then
+            echo "::error::Missing OCI_CLI_KEY_CONTENT secret"
+            exit 1
+          fi
+          mkdir -p ~/.oci
+          RAW_KEY="${OCI_CLI_KEY_CONTENT}"
+          RAW_KEY_STRIPPED=$(printf '%s' "$RAW_KEY" | tr -d '\r')
+          if printf '%s' "$RAW_KEY_STRIPPED" | grep -q "BEGIN .*PRIVATE KEY"; then
+            printf '%s\n' "$RAW_KEY_STRIPPED" > ~/.oci/oci_api_key.pem
+          elif printf '%b' "$RAW_KEY_STRIPPED" | grep -q "BEGIN .*PRIVATE KEY"; then
+            printf '%b' "$RAW_KEY_STRIPPED" > ~/.oci/oci_api_key.pem
+          elif printf '%s' "$RAW_KEY_STRIPPED" | base64 -d > ~/.oci/oci_api_key.pem 2>/dev/null; then
+            :
+          elif printf '%b' "$RAW_KEY_STRIPPED" | base64 -d > ~/.oci/oci_api_key.pem 2>/dev/null; then
+            :
+          else
+            printf '%b' "$RAW_KEY_STRIPPED" > ~/.oci/oci_api_key.pem
+          fi
+          chmod 600 ~/.oci/oci_api_key.pem
+
+      - name: Terraform init
+        run: terraform -chdir=infra/terraform/envs/dev init -reconfigure
+
+      - name: Terraform validate
+        run: terraform -chdir=infra/terraform/envs/dev validate
+
+      - name: Terraform plan
+        run: terraform -chdir=infra/terraform/envs/dev plan -no-color
+
+      - name: Terraform apply
+        if: ${{ github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'apply') }}
+        run: terraform -chdir=infra/terraform/envs/dev apply -auto-approve
+
+      - name: Terraform destroy
+        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'destroy' }}
+        run: terraform -chdir=infra/terraform/envs/dev destroy -auto-approve

@@ -457,6 +457,27 @@ jobs:
           echo "--- API Gateway LB IP ---"
           kubectl get svc api-gateway -n ${{ inputs.namespace }} -o jsonpath='{.status.loadBalancer.ingress[0].ip}{"\n"}' || true
 
+      - name: Publish dev endpoint summary
+        if: ${{ inputs.environment_name == 'dev' }}
+        run: |
+          WEB_IP=$(kubectl get svc web -n ${{ inputs.namespace }} -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true)
+          API_IP=$(kubectl get svc api-gateway -n ${{ inputs.namespace }} -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true)
+          WEB_URL=""
+          API_URL=""
+          if [ -n "$WEB_IP" ]; then WEB_URL="http://$WEB_IP"; fi
+          if [ -n "$API_IP" ]; then API_URL="http://$API_IP"; fi
+          {
+            echo "## Dev Deployment Endpoints"
+            echo ""
+            echo "- Namespace: \`${{ inputs.namespace }}\`"
+            echo "- Web IP: \`${WEB_IP:-pending}\`"
+            echo "- API Gateway IP: \`${API_IP:-pending}\`"
+            if [ -n "$WEB_URL" ]; then echo "- Web URL: $WEB_URL"; fi
+            if [ -n "$API_URL" ]; then echo "- API URL: $API_URL"; fi
+            echo ""
+            echo "If IP is pending, wait 1-3 minutes and re-check service status."
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Wait for rollouts
         run: |
           for d in api-gateway web identity seller catalog search pricing inventory cart checkout payments orders fulfillment notifications reviews analytics; do

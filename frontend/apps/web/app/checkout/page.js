@@ -19,7 +19,7 @@ export default function CheckoutPage() {
     <div className="grid" style={{ gap: 24 }}>
       <PageHeader title="Checkout" subtitle="Finalize the order and confirm payment flow." />
       <Section
-        title="Order Summary"
+        title="new Summary"
         subtitle="This is a demo checkout flow for service validation."
       >
         <div className="grid grid-2">

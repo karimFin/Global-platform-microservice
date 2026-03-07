@@ -89,6 +89,20 @@ kubectl apply -k platform/k8s/base
 - Connector configs: `infra/dev/*.json` and `platform/k8s/base/*-configmap.yaml`
 - Rollback: `kubectl rollout undo deployment/<name> -n <namespace>`
 
+## OCI Dev Automation
+Use one command entrypoints for learning lifecycle:
+- `make ship-dev` → Push current branch to `dev` (auto-triggers `Deploy Dev`)
+- `make infra-apply-ci` → Run Terraform apply in GitHub Actions (`Infra Dev`)
+- `make infra-destroy-ci` → Run Terraform destroy in GitHub Actions (`Infra Dev`)
+- `make infra-plan` → Terraform plan for `infra/terraform/envs/dev`
+- `make infra-apply` → Create/update dev OCI infrastructure
+- `make infra-destroy` → Destroy dev OCI infrastructure
+- `make up-dev` → Apply infra + generate kubeconfig + update `KUBE_CONFIG_DEV` + trigger `Deploy Dev`
+- `make infra-status` → Show Terraform state and active OCI cluster/LB
+
+Script entrypoint: `scripts/devctl.sh`  
+Full quick commands: `cmd.md`
+
 ## Roadmap
 - OpenSearch indexing pipelines
 - SLO dashboards and alerting
