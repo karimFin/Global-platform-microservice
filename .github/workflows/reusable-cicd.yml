@@ -291,11 +291,18 @@ jobs:
             echo "KUBE_CONFIG_DEV has no current context"
             exit 1
           fi
-          SERVER=$(kubectl config view -o jsonpath='{.clusters[0].cluster.server}' 2>/dev/null || true)
-          if [ -z "$SERVER" ] || [ "$SERVER" = "http://localhost:8080" ]; then
-            echo "KUBE_CONFIG_DEV has invalid cluster server"
+          CLUSTER=$(kubectl config view -o jsonpath="{.contexts[?(@.name==\"$CTX\")].context.cluster}" 2>/dev/null || true)
+          if [ -z "$CLUSTER" ]; then
+            echo "KUBE_CONFIG_DEV has no cluster for current context"
             exit 1
           fi
+          SERVER=$(kubectl config view -o jsonpath="{.clusters[?(@.name==\"$CLUSTER\")].cluster.server}" 2>/dev/null || true)
+          case "$SERVER" in
+            ""|http://localhost:8080|http://127.0.0.1:8080|http://[::1]:8080|https://localhost:*|https://127.0.0.1:*|https://[::1]:*)
+              echo "KUBE_CONFIG_DEV has invalid cluster server"
+              exit 1
+              ;;
+          esac
         env:
           KUBE_CONFIG_DEV: ${{ secrets.KUBE_CONFIG_DEV }}
       - name: Create namespace
@@ -383,11 +390,18 @@ jobs:
             echo "KUBE_CONFIG_PROD has no current context"
             exit 1
           fi
-          SERVER=$(kubectl config view -o jsonpath='{.clusters[0].cluster.server}' 2>/dev/null || true)
-          if [ -z "$SERVER" ] || [ "$SERVER" = "http://localhost:8080" ]; then
-            echo "KUBE_CONFIG_PROD has invalid cluster server"
+          CLUSTER=$(kubectl config view -o jsonpath="{.contexts[?(@.name==\"$CTX\")].context.cluster}" 2>/dev/null || true)
+          if [ -z "$CLUSTER" ]; then
+            echo "KUBE_CONFIG_PROD has no cluster for current context"
             exit 1
           fi
+          SERVER=$(kubectl config view -o jsonpath="{.clusters[?(@.name==\"$CLUSTER\")].cluster.server}" 2>/dev/null || true)
+          case "$SERVER" in
+            ""|http://localhost:8080|http://127.0.0.1:8080|http://[::1]:8080|https://localhost:*|https://127.0.0.1:*|https://[::1]:*)
+              echo "KUBE_CONFIG_PROD has invalid cluster server"
+              exit 1
+              ;;
+          esac
         env:
           KUBE_CONFIG_PROD: ${{ secrets.KUBE_CONFIG_PROD }}
       - name: Create namespace
@@ -451,11 +465,18 @@ jobs:
             echo "KUBE_CONFIG_PROD has no current context"
             exit 1
           fi
-          SERVER=$(kubectl config view -o jsonpath='{.clusters[0].cluster.server}' 2>/dev/null || true)
-          if [ -z "$SERVER" ] || [ "$SERVER" = "http://localhost:8080" ]; then
-            echo "KUBE_CONFIG_PROD has invalid cluster server"
+          CLUSTER=$(kubectl config view -o jsonpath="{.contexts[?(@.name==\"$CTX\")].context.cluster}" 2>/dev/null || true)
+          if [ -z "$CLUSTER" ]; then
+            echo "KUBE_CONFIG_PROD has no cluster for current context"
             exit 1
           fi
+          SERVER=$(kubectl config view -o jsonpath="{.clusters[?(@.name==\"$CLUSTER\")].cluster.server}" 2>/dev/null || true)
+          case "$SERVER" in
+            ""|http://localhost:8080|http://127.0.0.1:8080|http://[::1]:8080|https://localhost:*|https://127.0.0.1:*|https://[::1]:*)
+              echo "KUBE_CONFIG_PROD has invalid cluster server"
+              exit 1
+              ;;
+          esac
         env:
           KUBE_CONFIG_PROD: ${{ secrets.KUBE_CONFIG_PROD }}
       - name: Canary load check
@@ -512,11 +533,18 @@ jobs:
             echo "KUBE_CONFIG_PROD has no current context"
             exit 1
           fi
-          SERVER=$(kubectl config view -o jsonpath='{.clusters[0].cluster.server}' 2>/dev/null || true)
-          if [ -z "$SERVER" ] || [ "$SERVER" = "http://localhost:8080" ]; then
-            echo "KUBE_CONFIG_PROD has invalid cluster server"
+          CLUSTER=$(kubectl config view -o jsonpath="{.contexts[?(@.name==\"$CTX\")].context.cluster}" 2>/dev/null || true)
+          if [ -z "$CLUSTER" ]; then
+            echo "KUBE_CONFIG_PROD has no cluster for current context"
             exit 1
           fi
+          SERVER=$(kubectl config view -o jsonpath="{.clusters[?(@.name==\"$CLUSTER\")].cluster.server}" 2>/dev/null || true)
+          case "$SERVER" in
+            ""|http://localhost:8080|http://127.0.0.1:8080|http://[::1]:8080|https://localhost:*|https://127.0.0.1:*|https://[::1]:*)
+              echo "KUBE_CONFIG_PROD has invalid cluster server"
+              exit 1
+              ;;
+          esac
         env:
           KUBE_CONFIG_PROD: ${{ secrets.KUBE_CONFIG_PROD }}
       - name: Promote all images
