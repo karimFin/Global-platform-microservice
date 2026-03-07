@@ -46,7 +46,6 @@ jobs:
       validate_k8s: true
       validate_k8s_all: false
       policy_check: true
-      run_trivy: false
       canary_checks: false
       create_namespace: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.create_namespace == 'true' || true }}
       ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.ref || '' }}

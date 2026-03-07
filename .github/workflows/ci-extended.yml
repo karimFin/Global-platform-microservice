@@ -31,6 +31,5 @@ jobs:
       validate_k8s: true
       validate_k8s_all: false
       policy_check: true
-      run_trivy: false
       canary_checks: false
       create_namespace: false

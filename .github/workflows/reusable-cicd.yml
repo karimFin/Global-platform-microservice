@@ -55,10 +55,6 @@ on:
         required: true
         type: boolean
         default: false
-      run_trivy:
-        required: false
-        type: boolean
-        default: false
       canary_checks:
         required: true
         type: boolean
@@ -172,7 +168,7 @@ jobs:
           name: sbom-${{ matrix.service }}
           path: sbom-${{ matrix.service }}.spdx.json
       - name: Trivy scan
-        if: ${{ inputs.push_images && inputs.run_trivy }}
+        if: ${{ false }}
         uses: aquasecurity/trivy-action@0.19.0
         with:
           image-ref: ${{ env.REGISTRY }}/${{ env.REPO_LOWER }}/${{ matrix.service }}:${{ needs.meta.outputs.sha }}
