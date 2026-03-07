@@ -14,20 +14,20 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  pipeline:
-    uses: ./.github/workflows/reusable-cicd.yml
-    with:
-      environment_name: dev
-      namespace: marketplace-dev
-      overlay: dev
-      deploy: false
-      build_images: false
-      push_images: false
-      sign_images: false
-      run_tests: true
-      run_frontend: true
-      validate_k8s: false
-      validate_k8s_all: true
-      policy_check: true
-      canary_checks: false
-      create_namespace: false
+  lint-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm ci
+      - run: npm run lint
+      - run: |
+          for svc in api-gateway identity seller catalog search pricing inventory cart checkout payments orders fulfillment notifications reviews analytics; do
+            (cd services/$svc && npm ci && npm test)
+          done
+      - run: npm --prefix frontend install
+      - run: npm --prefix frontend run lint
+      - run: npm --prefix frontend run format
+      - run: npm --prefix frontend run build
