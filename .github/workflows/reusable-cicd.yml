@@ -266,12 +266,27 @@ jobs:
       - name: Configure kubeconfig
         run: |
           mkdir -p $HOME/.kube
-          echo "${KUBE_CONFIG_DEV}" | base64 -d > $HOME/.kube/config 2>/dev/null || true
-          if ! grep -q "apiVersion:" $HOME/.kube/config; then
-            echo "${KUBE_CONFIG_DEV}" > $HOME/.kube/config
+          CONFIG_FILE=$HOME/.kube/config
+          RAW_FILE=$HOME/.kube/config.raw
+          DECODED_FILE=$HOME/.kube/config.dec
+          printf '%s' "${KUBE_CONFIG_DEV}" > "$RAW_FILE"
+          if grep -q "apiVersion:" "$RAW_FILE"; then
+            cp "$RAW_FILE" "$CONFIG_FILE"
+          else
+            base64 -d "$RAW_FILE" > "$DECODED_FILE" 2>/dev/null || true
+            if grep -q "apiVersion:" "$DECODED_FILE"; then
+              cp "$DECODED_FILE" "$CONFIG_FILE"
+            else
+              base64 -d "$DECODED_FILE" > "$CONFIG_FILE" 2>/dev/null || true
+              if ! grep -q "apiVersion:" "$CONFIG_FILE"; then
+                echo "KUBE_CONFIG_DEV is invalid"
+                exit 1
+              fi
+            fi
           fi
-          chmod 600 $HOME/.kube/config
-          echo "KUBECONFIG=$HOME/.kube/config" >> $GITHUB_ENV
+          chmod 600 "$CONFIG_FILE"
+          echo "KUBECONFIG=$CONFIG_FILE" >> $GITHUB_ENV
+          kubectl config view --minify
         env:
           KUBE_CONFIG_DEV: ${{ secrets.KUBE_CONFIG_DEV }}
       - name: Create namespace
@@ -334,12 +349,27 @@ jobs:
       - name: Configure kubeconfig
         run: |
           mkdir -p $HOME/.kube
-          echo "${KUBE_CONFIG_PROD}" | base64 -d > $HOME/.kube/config 2>/dev/null || true
-          if ! grep -q "apiVersion:" $HOME/.kube/config; then
-            echo "${KUBE_CONFIG_PROD}" > $HOME/.kube/config
+          CONFIG_FILE=$HOME/.kube/config
+          RAW_FILE=$HOME/.kube/config.raw
+          DECODED_FILE=$HOME/.kube/config.dec
+          printf '%s' "${KUBE_CONFIG_PROD}" > "$RAW_FILE"
+          if grep -q "apiVersion:" "$RAW_FILE"; then
+            cp "$RAW_FILE" "$CONFIG_FILE"
+          else
+            base64 -d "$RAW_FILE" > "$DECODED_FILE" 2>/dev/null || true
+            if grep -q "apiVersion:" "$DECODED_FILE"; then
+              cp "$DECODED_FILE" "$CONFIG_FILE"
+            else
+              base64 -d "$DECODED_FILE" > "$CONFIG_FILE" 2>/dev/null || true
+              if ! grep -q "apiVersion:" "$CONFIG_FILE"; then
+                echo "KUBE_CONFIG_PROD is invalid"
+                exit 1
+              fi
+            fi
           fi
-          chmod 600 $HOME/.kube/config
-          echo "KUBECONFIG=$HOME/.kube/config" >> $GITHUB_ENV
+          chmod 600 "$CONFIG_FILE"
+          echo "KUBECONFIG=$CONFIG_FILE" >> $GITHUB_ENV
+          kubectl config view --minify
         env:
           KUBE_CONFIG_PROD: ${{ secrets.KUBE_CONFIG_PROD }}
       - name: Create namespace
@@ -378,12 +408,27 @@ jobs:
       - name: Configure kubeconfig
         run: |
           mkdir -p $HOME/.kube
-          echo "${KUBE_CONFIG_PROD}" | base64 -d > $HOME/.kube/config 2>/dev/null || true
-          if ! grep -q "apiVersion:" $HOME/.kube/config; then
-            echo "${KUBE_CONFIG_PROD}" > $HOME/.kube/config
+          CONFIG_FILE=$HOME/.kube/config
+          RAW_FILE=$HOME/.kube/config.raw
+          DECODED_FILE=$HOME/.kube/config.dec
+          printf '%s' "${KUBE_CONFIG_PROD}" > "$RAW_FILE"
+          if grep -q "apiVersion:" "$RAW_FILE"; then
+            cp "$RAW_FILE" "$CONFIG_FILE"
+          else
+            base64 -d "$RAW_FILE" > "$DECODED_FILE" 2>/dev/null || true
+            if grep -q "apiVersion:" "$DECODED_FILE"; then
+              cp "$DECODED_FILE" "$CONFIG_FILE"
+            else
+              base64 -d "$DECODED_FILE" > "$CONFIG_FILE" 2>/dev/null || true
+              if ! grep -q "apiVersion:" "$CONFIG_FILE"; then
+                echo "KUBE_CONFIG_PROD is invalid"
+                exit 1
+              fi
+            fi
           fi
-          chmod 600 $HOME/.kube/config
-          echo "KUBECONFIG=$HOME/.kube/config" >> $GITHUB_ENV
+          chmod 600 "$CONFIG_FILE"
+          echo "KUBECONFIG=$CONFIG_FILE" >> $GITHUB_ENV
+          kubectl config view --minify
         env:
           KUBE_CONFIG_PROD: ${{ secrets.KUBE_CONFIG_PROD }}
       - name: Canary load check
@@ -415,12 +460,27 @@ jobs:
       - name: Configure kubeconfig
         run: |
           mkdir -p $HOME/.kube
-          echo "${KUBE_CONFIG_PROD}" | base64 -d > $HOME/.kube/config 2>/dev/null || true
-          if ! grep -q "apiVersion:" $HOME/.kube/config; then
-            echo "${KUBE_CONFIG_PROD}" > $HOME/.kube/config
+          CONFIG_FILE=$HOME/.kube/config
+          RAW_FILE=$HOME/.kube/config.raw
+          DECODED_FILE=$HOME/.kube/config.dec
+          printf '%s' "${KUBE_CONFIG_PROD}" > "$RAW_FILE"
+          if grep -q "apiVersion:" "$RAW_FILE"; then
+            cp "$RAW_FILE" "$CONFIG_FILE"
+          else
+            base64 -d "$RAW_FILE" > "$DECODED_FILE" 2>/dev/null || true
+            if grep -q "apiVersion:" "$DECODED_FILE"; then
+              cp "$DECODED_FILE" "$CONFIG_FILE"
+            else
+              base64 -d "$DECODED_FILE" > "$CONFIG_FILE" 2>/dev/null || true
+              if ! grep -q "apiVersion:" "$CONFIG_FILE"; then
+                echo "KUBE_CONFIG_PROD is invalid"
+                exit 1
+              fi
+            fi
           fi
-          chmod 600 $HOME/.kube/config
-          echo "KUBECONFIG=$HOME/.kube/config" >> $GITHUB_ENV
+          chmod 600 "$CONFIG_FILE"
+          echo "KUBECONFIG=$CONFIG_FILE" >> $GITHUB_ENV
+          kubectl config view --minify
         env:
           KUBE_CONFIG_PROD: ${{ secrets.KUBE_CONFIG_PROD }}
       - name: Promote all images
