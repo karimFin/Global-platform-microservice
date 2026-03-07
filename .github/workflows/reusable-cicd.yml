@@ -286,7 +286,16 @@ jobs:
           fi
           chmod 600 "$CONFIG_FILE"
           echo "KUBECONFIG=$CONFIG_FILE" >> $GITHUB_ENV
-          kubectl config view --minify
+          CTX=$(kubectl config current-context 2>/dev/null || true)
+          if [ -z "$CTX" ]; then
+            echo "KUBE_CONFIG_DEV has no current context"
+            exit 1
+          fi
+          SERVER=$(kubectl config view -o jsonpath='{.clusters[0].cluster.server}' 2>/dev/null || true)
+          if [ -z "$SERVER" ] || [ "$SERVER" = "http://localhost:8080" ]; then
+            echo "KUBE_CONFIG_DEV has invalid cluster server"
+            exit 1
+          fi
         env:
           KUBE_CONFIG_DEV: ${{ secrets.KUBE_CONFIG_DEV }}
       - name: Create namespace
@@ -369,7 +378,16 @@ jobs:
           fi
           chmod 600 "$CONFIG_FILE"
           echo "KUBECONFIG=$CONFIG_FILE" >> $GITHUB_ENV
-          kubectl config view --minify
+          CTX=$(kubectl config current-context 2>/dev/null || true)
+          if [ -z "$CTX" ]; then
+            echo "KUBE_CONFIG_PROD has no current context"
+            exit 1
+          fi
+          SERVER=$(kubectl config view -o jsonpath='{.clusters[0].cluster.server}' 2>/dev/null || true)
+          if [ -z "$SERVER" ] || [ "$SERVER" = "http://localhost:8080" ]; then
+            echo "KUBE_CONFIG_PROD has invalid cluster server"
+            exit 1
+          fi
         env:
           KUBE_CONFIG_PROD: ${{ secrets.KUBE_CONFIG_PROD }}
       - name: Create namespace
@@ -428,7 +446,16 @@ jobs:
           fi
           chmod 600 "$CONFIG_FILE"
           echo "KUBECONFIG=$CONFIG_FILE" >> $GITHUB_ENV
-          kubectl config view --minify
+          CTX=$(kubectl config current-context 2>/dev/null || true)
+          if [ -z "$CTX" ]; then
+            echo "KUBE_CONFIG_PROD has no current context"
+            exit 1
+          fi
+          SERVER=$(kubectl config view -o jsonpath='{.clusters[0].cluster.server}' 2>/dev/null || true)
+          if [ -z "$SERVER" ] || [ "$SERVER" = "http://localhost:8080" ]; then
+            echo "KUBE_CONFIG_PROD has invalid cluster server"
+            exit 1
+          fi
         env:
           KUBE_CONFIG_PROD: ${{ secrets.KUBE_CONFIG_PROD }}
       - name: Canary load check
@@ -480,7 +507,16 @@ jobs:
           fi
           chmod 600 "$CONFIG_FILE"
           echo "KUBECONFIG=$CONFIG_FILE" >> $GITHUB_ENV
-          kubectl config view --minify
+          CTX=$(kubectl config current-context 2>/dev/null || true)
+          if [ -z "$CTX" ]; then
+            echo "KUBE_CONFIG_PROD has no current context"
+            exit 1
+          fi
+          SERVER=$(kubectl config view -o jsonpath='{.clusters[0].cluster.server}' 2>/dev/null || true)
+          if [ -z "$SERVER" ] || [ "$SERVER" = "http://localhost:8080" ]; then
+            echo "KUBE_CONFIG_PROD has invalid cluster server"
+            exit 1
+          fi
         env:
           KUBE_CONFIG_PROD: ${{ secrets.KUBE_CONFIG_PROD }}
       - name: Promote all images
