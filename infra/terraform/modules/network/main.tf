@@ -22,6 +22,23 @@ resource "oci_core_route_table" "public_rt" {
   }
 }
 
+resource "oci_core_nat_gateway" "nat" {
+  compartment_id = var.compartment_ocid
+  vcn_id         = oci_core_vcn.this.id
+  display_name   = "gmp-nat"
+}
+
+resource "oci_core_route_table" "private_rt" {
+  compartment_id = var.compartment_ocid
+  vcn_id         = oci_core_vcn.this.id
+  display_name   = "gmp-private-rt"
+  route_rules {
+    network_entity_id = oci_core_nat_gateway.nat.id
+    destination       = "0.0.0.0/0"
+    destination_type  = "CIDR_BLOCK"
+  }
+}
+
 resource "oci_core_security_list" "public_sl" {
   compartment_id = var.compartment_ocid
   vcn_id         = oci_core_vcn.this.id
@@ -35,7 +52,7 @@ resource "oci_core_security_list" "public_sl" {
     protocol = "6"
     source   = "0.0.0.0/0"
     tcp_options {
-      min = 0
+      min = 1
       max = 65535
     }
   }
@@ -71,6 +88,7 @@ resource "oci_core_subnet" "private" {
   vcn_id            = oci_core_vcn.this.id
   cidr_block        = var.private_subnet_cidr
   display_name      = "gmp-private-subnet"
+  route_table_id    = oci_core_route_table.private_rt.id
   security_list_ids = [oci_core_security_list.private_sl.id]
   prohibit_public_ip_on_vnic = true
 }

@@ -422,6 +422,23 @@ jobs:
         if: ${{ inputs.create_namespace }}
         run: kubectl get namespace ${{ inputs.namespace }} || kubectl create namespace ${{ inputs.namespace }}
 
+      - name: Configure GHCR pull secret
+        env:
+          GHCR_PASSWORD: ${{ secrets.GHCR_TOKEN || secrets.GITHUB_TOKEN }}
+          GHCR_USERNAME: ${{ github.actor }}
+        run: |
+          if [ -z "$GHCR_PASSWORD" ]; then
+            echo "::error::GHCR_TOKEN is required to pull private images from ghcr.io"
+            exit 1
+          fi
+          kubectl create secret docker-registry ghcr-creds \
+            -n ${{ inputs.namespace }} \
+            --docker-server=ghcr.io \
+            --docker-username="$GHCR_USERNAME" \
+            --docker-password="$GHCR_PASSWORD" \
+            --dry-run=client -o yaml | kubectl apply -f -
+          kubectl patch serviceaccount default -n ${{ inputs.namespace }} -p '{"imagePullSecrets":[{"name":"ghcr-creds"}]}'
+
       - name: Prepare kustomize images
         run: |
           cd platform/k8s/overlays/${{ inputs.overlay }}
@@ -596,6 +613,23 @@ jobs:
       - name: Create namespace
         if: ${{ inputs.create_namespace }}
         run: kubectl get namespace ${{ inputs.namespace }} || kubectl create namespace ${{ inputs.namespace }}
+
+      - name: Configure GHCR pull secret
+        env:
+          GHCR_PASSWORD: ${{ secrets.GHCR_TOKEN || secrets.GITHUB_TOKEN }}
+          GHCR_USERNAME: ${{ github.actor }}
+        run: |
+          if [ -z "$GHCR_PASSWORD" ]; then
+            echo "::error::GHCR_TOKEN is required to pull private images from ghcr.io"
+            exit 1
+          fi
+          kubectl create secret docker-registry ghcr-creds \
+            -n ${{ inputs.namespace }} \
+            --docker-server=ghcr.io \
+            --docker-username="$GHCR_USERNAME" \
+            --docker-password="$GHCR_PASSWORD" \
+            --dry-run=client -o yaml | kubectl apply -f -
+          kubectl patch serviceaccount default -n ${{ inputs.namespace }} -p '{"imagePullSecrets":[{"name":"ghcr-creds"}]}'
 
       - name: Canary on api-gateway
         run: |
@@ -866,6 +900,23 @@ jobs:
           kubectl cluster-info
         env:
           KUBE_CONFIG_PROD: ${{ secrets.KUBE_CONFIG_PROD }}
+
+      - name: Configure GHCR pull secret
+        env:
+          GHCR_PASSWORD: ${{ secrets.GHCR_TOKEN || secrets.GITHUB_TOKEN }}
+          GHCR_USERNAME: ${{ github.actor }}
+        run: |
+          if [ -z "$GHCR_PASSWORD" ]; then
+            echo "::error::GHCR_TOKEN is required to pull private images from ghcr.io"
+            exit 1
+          fi
+          kubectl create secret docker-registry ghcr-creds \
+            -n ${{ inputs.namespace }} \
+            --docker-server=ghcr.io \
+            --docker-username="$GHCR_USERNAME" \
+            --docker-password="$GHCR_PASSWORD" \
+            --dry-run=client -o yaml | kubectl apply -f -
+          kubectl patch serviceaccount default -n ${{ inputs.namespace }} -p '{"imagePullSecrets":[{"name":"ghcr-creds"}]}'
 
       - name: Promote all images
         run: |
