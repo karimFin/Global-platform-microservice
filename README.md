@@ -45,6 +45,7 @@ kubectl apply -k platform/k8s/base
 **Apply overlays**
 - Dev: `kubectl apply -k platform/k8s/overlays/dev`
 - Prod: `kubectl apply -k platform/k8s/overlays/prod`
+- Preview: `kubectl apply -k platform/k8s/overlays/preview`
 
 **Bootstrap Jobs**
 - `kafka-topics-init` creates core topics.
@@ -57,7 +58,7 @@ kubectl apply -k platform/k8s/base
 - `.github/workflows/ci.yml` runs service tests.
 - `.github/workflows/ci-extended.yml` runs lint, tests, image builds, SBOM, and vulnerability scans.
 - `.github/workflows/deploy.yml` deploys to dev on `dev` branch push; prod canary and promotion are manual dispatch.
-- `.github/workflows/preview-pr.yml` deploys PR previews to `pr-<number>` namespace when PR has `preview` label, comments URLs on the PR, and auto-cleans stale previews every 6 hours (24h TTL).
+- `.github/workflows/preview-pr.yml` deploys PR previews to `pr-<number>` namespace with the `preview` overlay when PR has `preview` label, comments URLs on the PR, and auto-cleans stale previews every 6 hours (24h TTL).
 
 **Secrets**
 - `KUBE_CONFIG_DEV` (base64 kubeconfig for dev)
@@ -67,6 +68,7 @@ kubectl apply -k platform/k8s/base
 - Topics: `platform/k8s/base/topics-job.yaml`
 - Connector configs: `infra/dev/*.json` and `platform/k8s/base/*-configmap.yaml`
 - Rollback: `kubectl rollout undo deployment/<name> -n <namespace>`
+- IaC adoption plan: `docs/IAC_ADOPTION_PLAN.md`
 
 ## OCI Dev Automation
 Use one command entrypoints for learning lifecycle:
