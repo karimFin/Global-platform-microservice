@@ -580,6 +580,7 @@ jobs:
       - name: Wait for rollouts
         run: |
           NS=${{ inputs.namespace }}
+          PREVIEW_PR="${{ inputs.preview_pr_number }}"
           diagnose_ns() {
             kubectl get pods -n "$NS" -o wide || true
             kubectl get events -n "$NS" --sort-by='.lastTimestamp' | tail -n 150 || true
@@ -596,12 +597,14 @@ jobs:
               exit 1
             fi
           }
-          check_rollout statefulset postgres
-          check_rollout statefulset kafka
-          check_rollout statefulset opensearch
-          for d in redis minio kafka-connect; do
-            check_rollout deployment "$d"
-          done
+          if [ -z "$PREVIEW_PR" ]; then
+            check_rollout statefulset postgres
+            check_rollout statefulset kafka
+            check_rollout statefulset opensearch
+            for d in redis minio kafka-connect; do
+              check_rollout deployment "$d"
+            done
+          fi
           for d in identity seller catalog search pricing inventory cart checkout payments orders fulfillment notifications reviews analytics api-gateway web transformer-api; do
             check_rollout deployment "$d"
           done
