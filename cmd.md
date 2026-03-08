@@ -80,3 +80,17 @@ make format-check
 make format-fix
 make format-check
 ```
+
+## GitHub governance IaC
+
+```bash
+export TF_VAR_github_owner=karimFin
+export TF_VAR_github_token=<github_pat_with_repo_admin_permissions>
+export TF_VAR_repository_name=gpm-microservices
+export TF_VAR_tf_cloud_organization=<your_hcp_org>
+export TF_VAR_tf_workspace=gmp-dev
+
+make gh-iac-init
+make gh-iac-plan
+make gh-iac-apply
+```

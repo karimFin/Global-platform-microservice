@@ -81,6 +81,8 @@ Use one command entrypoints for learning lifecycle:
 - `make infra-destroy` → Destroy dev OCI infrastructure
 - `make up-dev` → Apply infra + generate kubeconfig + update `KUBE_CONFIG_DEV` + trigger `Deploy Dev`
 - `make infra-status` → Show Terraform state and active OCI cluster/LB
+- `make gh-iac-plan` → Plan GitHub labels/branch protection/environments as Terraform
+- `make gh-iac-apply` → Apply GitHub governance IaC
 
 Required for remote backend locking:
 - `TF_CLOUD_ORGANIZATION` (local shell env)
