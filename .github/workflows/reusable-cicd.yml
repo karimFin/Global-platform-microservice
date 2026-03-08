@@ -513,6 +513,16 @@ jobs:
           cat platform/k8s/overlays/${{ inputs.overlay }}/kustomization.yaml
           kustomize build platform/k8s/overlays/${{ inputs.overlay }} | grep -m 40 '^  namespace:'
 
+      - name: Reset immutable bootstrap jobs
+        run: |
+          kubectl delete job \
+            minio-make-bucket \
+            s3-sink-register \
+            debezium-register \
+            kafka-topics-init \
+            -n ${{ inputs.namespace }} \
+            --ignore-not-found=true
+
       - name: Apply dev overlay
         run: kubectl apply -k platform/k8s/overlays/${{ inputs.overlay }}
 
