@@ -485,6 +485,7 @@ jobs:
       - name: Prepare kustomize images
         run: |
           cd platform/k8s/overlays/${{ inputs.overlay }}
+          kustomize edit set namespace ${{ inputs.namespace }}
           for img in api-gateway web identity seller catalog search pricing inventory cart checkout payments orders fulfillment notifications reviews analytics; do
             kustomize edit set image $img=${{ env.REGISTRY }}/${{ env.REPO_LOWER }}/$img:${{ needs.meta.outputs.sha }}
           done
