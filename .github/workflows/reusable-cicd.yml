@@ -562,21 +562,30 @@ jobs:
       - name: Wait for rollouts
         run: |
           NS=${{ inputs.namespace }}
-          kubectl rollout status statefulset/postgres -n "$NS" --timeout=600s
-          kubectl rollout status statefulset/kafka -n "$NS" --timeout=600s
-          kubectl rollout status statefulset/opensearch -n "$NS" --timeout=600s
-          for d in redis minio kafka-connect; do
-            kubectl rollout status deployment/$d -n "$NS" --timeout=600s
-          done
-          for d in identity seller catalog search pricing inventory cart checkout payments orders fulfillment notifications reviews analytics api-gateway web transformer-api; do
-            if ! kubectl rollout status deployment/$d -n "$NS" --timeout=600s; then
-              kubectl get pods -n "$NS" -o wide || true
-              kubectl get events -n "$NS" --sort-by='.lastTimestamp' | tail -n 120 || true
-              kubectl describe deployment/$d -n "$NS" || true
-              kubectl describe pods -n "$NS" -l app=$d || true
-              kubectl logs -n "$NS" -l app=$d --all-containers --tail=200 || true
+          diagnose_ns() {
+            kubectl get pods -n "$NS" -o wide || true
+            kubectl get events -n "$NS" --sort-by='.lastTimestamp' | tail -n 150 || true
+          }
+          check_rollout() {
+            local kind="$1"
+            local name="$2"
+            echo "Checking rollout: ${kind}/${name}"
+            if ! kubectl rollout status "${kind}/${name}" -n "$NS" --timeout=600s; then
+              kubectl describe "${kind}/${name}" -n "$NS" || true
+              kubectl describe pods -n "$NS" -l app="$name" || true
+              kubectl logs -n "$NS" -l app="$name" --all-containers --tail=200 || true
+              diagnose_ns
               exit 1
             fi
+          }
+          check_rollout statefulset postgres
+          check_rollout statefulset kafka
+          check_rollout statefulset opensearch
+          for d in redis minio kafka-connect; do
+            check_rollout deployment "$d"
+          done
+          for d in identity seller catalog search pricing inventory cart checkout payments orders fulfillment notifications reviews analytics api-gateway web transformer-api; do
+            check_rollout deployment "$d"
           done
 
   # ─────────────────────────────────────────────────────────────
