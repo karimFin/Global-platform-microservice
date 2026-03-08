@@ -2,7 +2,7 @@ name: Preview PR
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened, closed]
+    types: [opened, synchronize, reopened, labeled, unlabeled, closed]
     branches: [dev]
   schedule:
     - cron: "0 */6 * * *"
@@ -21,7 +21,7 @@ concurrency:
 
 jobs:
   deploy-preview:
-    if: ${{ github.event.action != 'closed' && github.event.pull_request.head.repo.full_name == github.repository }}
+    if: ${{ github.event.action != 'closed' && github.event.pull_request.head.repo.full_name == github.repository && contains(github.event.pull_request.labels.*.name, 'preview') }}
     uses: ./.github/workflows/reusable-cicd.yml
     with:
       environment_name: dev

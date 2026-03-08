@@ -18,7 +18,7 @@ This pushes current code to `dev`.
 `Deploy Dev` workflow auto-runs on push to `dev`.
 
 PR previews are automatic:
-- Open/update PR to `dev` → deploys into namespace `pr-<PR_NUMBER>`
+- Add `preview` label on PR to `dev` → deploys into namespace `pr-<PR_NUMBER>`
 - Workflow comments preview Web/API URLs on the PR
 - Closing PR deletes the preview namespace
 - Scheduled cleanup removes stale preview namespaces every 6 hours (24h TTL)

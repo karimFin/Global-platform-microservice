@@ -79,7 +79,7 @@ kubectl apply -k platform/k8s/base
 - `.github/workflows/ci.yml` runs service tests.
 - `.github/workflows/ci-extended.yml` runs lint, tests, image builds, SBOM, and vulnerability scans.
 - `.github/workflows/deploy.yml` deploys to dev on `dev` branch push; prod canary and promotion are manual dispatch.
-- `.github/workflows/preview-pr.yml` deploys PR previews to `pr-<number>` namespace, comments URLs on the PR, and auto-cleans stale previews every 6 hours (24h TTL).
+- `.github/workflows/preview-pr.yml` deploys PR previews to `pr-<number>` namespace when PR has `preview` label, comments URLs on the PR, and auto-cleans stale previews every 6 hours (24h TTL).
 
 **Secrets**
 - `KUBE_CONFIG_DEV` (base64 kubeconfig for dev)
