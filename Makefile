@@ -64,3 +64,13 @@ ship-dev:
 
 up-dev:
 	bash scripts/devctl.sh up
+
+grafana-install:
+	kubectl create secret generic grafana-admin -n observability --from-literal=username=admin --from-literal=password=adminadmin --dry-run=client -o yaml | kubectl apply -f -
+	kubectl apply -k platform/k8s/observability/grafana
+
+grafana-port-forward:
+	kubectl -n observability port-forward svc/grafana 3000:3000
+
+grafana-uninstall:
+	kubectl delete -k platform/k8s/observability/grafana --ignore-not-found=true
