@@ -13,7 +13,7 @@ spec:
       restartPolicy: OnFailure
       containers:
         - name: mc
-          image: docker.io/minio/mc:latest
+          image: quay.io/minio/mc:RELEASE.2024-11-21T17-21-54Z
           env:
             - name: MINIO_ACCESS_KEY
               valueFrom:

@@ -469,6 +469,20 @@ jobs:
             preview.gmp/ttl-hours=24 \
             --overwrite=true
 
+      - name: Ensure preview data secrets
+        if: ${{ inputs.preview_pr_number != '' }}
+        run: |
+          kubectl create secret generic postgres-credentials \
+            -n ${{ inputs.namespace }} \
+            --from-literal=username=market \
+            --from-literal=password=marketpass \
+            --dry-run=client -o yaml | kubectl apply -f -
+          kubectl create secret generic minio-credentials \
+            -n ${{ inputs.namespace }} \
+            --from-literal=accesskey=admin \
+            --from-literal=secretkey=adminadmin \
+            --dry-run=client -o yaml | kubectl apply -f -
+
       - name: Configure GHCR pull secret
         env:
           GHCR_PASSWORD: ${{ secrets.GHCR_TOKEN || secrets.GITHUB_TOKEN }}
@@ -501,6 +515,10 @@ jobs:
 
       - name: Apply dev overlay
         run: kubectl apply -k platform/k8s/overlays/${{ inputs.overlay }}
+
+      - name: Limit preview load balancers
+        if: ${{ inputs.preview_pr_number != '' }}
+        run: kubectl patch svc web -n ${{ inputs.namespace }} -p '{"spec":{"type":"ClusterIP"}}' || true
 
       - name: Show external services
         run: |

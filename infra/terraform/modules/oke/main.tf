@@ -30,7 +30,7 @@ resource "oci_containerengine_node_pool" "pool" {
       availability_domain = var.availability_domain
       subnet_id           = var.node_subnet_id
     }
-    is_pv_encryption_in_transit_enabled = true
+    is_pv_encryption_in_transit_enabled = false
   }
   node_shape = var.node_shape
   node_shape_config {
