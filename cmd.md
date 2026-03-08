@@ -57,3 +57,26 @@ GH_REF=dev make deploy-dev
 GH_REPO=owner/repo make deploy-dev
 KUBECONFIG_FILE=/tmp/custom-kube.yaml make kubeconfig-dev
 ```
+
+## Simple daily commands
+
+```bash
+make lint
+make format-check
+make format-fix
+```
+
+## Quick fixes examples
+
+```bash
+# Fix only cart page formatting
+make format-fix-cart
+
+# Run checks before push
+make lint
+make format-check
+
+# If format-check fails, auto-fix and re-run
+make format-fix
+make format-check
+```
