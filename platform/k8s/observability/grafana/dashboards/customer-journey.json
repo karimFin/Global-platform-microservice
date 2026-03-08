@@ -1,0 +1,141 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "reqps"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom"
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(http_requests_total{service=~\"catalog|search|cart|checkout|payments|orders\"}[5m])) by (service)",
+          "legendFormat": "{{service}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Journey Traffic by Service",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
+      "id": 2,
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom"
+        }
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (service, le) (rate(http_request_duration_seconds_bucket{service=~\"catalog|search|cart|checkout|payments|orders\"}[5m])))",
+          "legendFormat": "{{service}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Journey p95 Latency",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 8
+      },
+      "id": 3,
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom"
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(http_requests_total{service=~\"catalog|search|cart|checkout|payments|orders\",status=~\"5..\"}[5m])) by (service) / clamp_min(sum(rate(http_requests_total{service=~\"catalog|search|cart|checkout|payments|orders\"}[5m])) by (service), 1e-9)",
+          "legendFormat": "{{service}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Journey Error Ratio",
+      "type": "timeseries"
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "style": "dark",
+  "tags": [
+    "sre",
+    "journey",
+    "golden-signals"
+  ],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "timezone": "browser",
+  "title": "Customer Journey Health",
+  "version": 1,
+  "weekStart": ""
+}

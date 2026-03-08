@@ -64,3 +64,22 @@ ship-dev:
 
 up-dev:
 	bash scripts/devctl.sh up
+
+KUBECONFIG_DEV_FILE ?= /tmp/kubeconfig-dev.yaml
+
+refresh-kubeconfig-dev:
+	KUBECONFIG_FILE=$(KUBECONFIG_DEV_FILE) bash scripts/devctl.sh kubeconfig
+
+grafana-install:
+	KUBECONFIG_FILE=$(KUBECONFIG_DEV_FILE) bash scripts/devctl.sh kubeconfig >/dev/null
+	kubectl --kubeconfig $(KUBECONFIG_DEV_FILE) apply -f platform/k8s/observability/grafana/namespace.yaml
+	kubectl --kubeconfig $(KUBECONFIG_DEV_FILE) create secret generic grafana-admin -n observability --from-literal=username=admin --from-literal=password=adminadmin --dry-run=client -o yaml | kubectl --kubeconfig $(KUBECONFIG_DEV_FILE) apply -f -
+	kubectl --kubeconfig $(KUBECONFIG_DEV_FILE) apply -k platform/k8s/observability/grafana
+
+grafana-port-forward:
+	KUBECONFIG_FILE=$(KUBECONFIG_DEV_FILE) bash scripts/devctl.sh kubeconfig >/dev/null
+	kubectl --kubeconfig $(KUBECONFIG_DEV_FILE) -n observability port-forward svc/grafana 3000:3000
+
+grafana-uninstall:
+	KUBECONFIG_FILE=$(KUBECONFIG_DEV_FILE) bash scripts/devctl.sh kubeconfig >/dev/null
+	kubectl --kubeconfig $(KUBECONFIG_DEV_FILE) delete -k platform/k8s/observability/grafana --ignore-not-found=true
