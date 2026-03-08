@@ -52,3 +52,26 @@ make gh-iac-destroy
 - `tools/PREVIEW_IAC_OVERLAY_README.md`
 - `tools/GITHUB_GOVERNANCE_IAC_README.md`
 - `tools/SECRETS_GOVERNANCE_ROTATION_README.md`
+- `tools/KUBERNETES_PLATFORM_README.md`
+- `tools/DOCKER_LOCAL_STACK_README.md`
+- `tools/KAFKA_EVENTING_README.md`
+- `tools/REDIS_CACHE_README.md`
+- `tools/POSTGRES_DATASTORE_README.md`
+- `tools/OPENSEARCH_README.md`
+- `tools/MINIO_OBJECT_STORAGE_README.md`
+- `tools/PROJECT_STRUCTURE_README.md`
+
+## Tool matrix
+| Tool | Purpose | Owner | Operational command |
+|---|---|---|---|
+| Kubernetes | Run microservices with declarative deployment | Platform/DevOps | `kubectl apply -k platform/k8s/overlays/dev` |
+| Docker Compose | Run full stack locally for development | App + Platform teams | `make dev` |
+| Kafka | Event backbone for async integration | Platform/Data | `kubectl logs -n marketplace-dev job/kafka-topics-init` |
+| Redis | Low-latency cache for hot reads | Service teams | `kubectl rollout status deployment/redis -n marketplace-dev` |
+| Postgres | Transactional source of truth | Service teams | `kubectl rollout status statefulset/postgres -n marketplace-dev` |
+| OpenSearch | Search indexing and query acceleration | Search/Platform | `kubectl rollout status statefulset/opensearch -n marketplace-dev` |
+| MinIO | S3-compatible event archive storage | Platform/Data | `kubectl logs -n marketplace-dev job/minio-make-bucket` |
+| Grafana | Dashboards for SLOs and golden signals | SRE/Platform | `make grafana-install` |
+| Preview IaC overlay | Declarative preview environment behavior | Platform/DevOps | `kubectl apply -k platform/k8s/overlays/preview` |
+| GitHub governance IaC | Labels, protections, environments as code | Platform/DevOps | `make gh-iac-apply` |
+| Secret governance + rotation | Policy metadata + controlled secret rotation | Platform/Security | `gh workflow run rotate-environment-secret.yml` |
