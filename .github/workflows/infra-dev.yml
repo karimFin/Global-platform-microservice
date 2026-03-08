@@ -32,6 +32,9 @@ jobs:
     env:
       TF_IN_AUTOMATION: true
       TF_INPUT: 0
+      TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
+      TF_CLOUD_ORGANIZATION: ${{ secrets.TF_CLOUD_ORGANIZATION }}
+      TF_WORKSPACE: gmp-dev
       TF_VAR_tenancy_ocid: ${{ secrets.OCI_CLI_TENANCY }}
       TF_VAR_user_ocid: ${{ secrets.OCI_CLI_USER }}
       TF_VAR_fingerprint: ${{ secrets.OCI_CLI_FINGERPRINT }}
@@ -40,6 +43,13 @@ jobs:
       TF_VAR_private_key_path: ~/.oci/oci_api_key.pem
     steps:
       - uses: actions/checkout@v4
+
+      - name: Validate Terraform Cloud settings
+        run: |
+          if [ -z "$TF_CLOUD_ORGANIZATION" ] || [ -z "$TF_TOKEN_app_terraform_io" ]; then
+            echo "::error::Missing TF_CLOUD_ORGANIZATION or TF_API_TOKEN secrets for remote backend locking"
+            exit 1
+          fi
 
       - uses: hashicorp/setup-terraform@v3
         with:

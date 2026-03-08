@@ -77,6 +77,10 @@ on:
         required: false
         type: string
         default: ""
+      preview_pr_number:
+        required: false
+        type: string
+        default: ""
 
 env:
   REGISTRY: ghcr.io
@@ -362,8 +366,12 @@ jobs:
             oci ce cluster create-kubeconfig --cluster-id "$CLUSTER_OCID" --file "$CONFIG_FILE" --region "${OCI_CLI_REGION}" --token-version 2.0.0 --kube-endpoint PUBLIC_ENDPOINT
           }
 
+          PREVIEW_PR="${{ inputs.preview_pr_number }}"
           KCFG_OK=false
-          if [ -n "${KUBE_CONFIG_DEV}" ]; then
+          if [ -n "$PREVIEW_PR" ]; then
+            ensure_kubeconfig_from_oci
+            KCFG_OK=true
+          elif [ -n "${KUBE_CONFIG_DEV}" ]; then
             printf '%s' "${KUBE_CONFIG_DEV}" > "$RAW_FILE"
             if grep -q "apiVersion:" "$RAW_FILE"; then
               cp "$RAW_FILE" "$CONFIG_FILE"
@@ -450,6 +458,31 @@ jobs:
         if: ${{ inputs.create_namespace }}
         run: kubectl get namespace ${{ inputs.namespace }} || kubectl create namespace ${{ inputs.namespace }}
 
+      - name: Label preview namespace TTL
+        if: ${{ inputs.preview_pr_number != '' }}
+        run: |
+          NOW=$(date +%s)
+          kubectl label namespace ${{ inputs.namespace }} \
+            preview.gmp/enabled=true \
+            preview.gmp/pr=${{ inputs.preview_pr_number }} \
+            preview.gmp/created-at="$NOW" \
+            preview.gmp/ttl-hours=24 \
+            --overwrite=true
+
+      - name: Ensure preview data secrets
+        if: ${{ inputs.preview_pr_number != '' }}
+        run: |
+          kubectl create secret generic postgres-credentials \
+            -n ${{ inputs.namespace }} \
+            --from-literal=username=market \
+            --from-literal=password=marketpass \
+            --dry-run=client -o yaml | kubectl apply -f -
+          kubectl create secret generic minio-credentials \
+            -n ${{ inputs.namespace }} \
+            --from-literal=accesskey=admin \
+            --from-literal=secretkey=adminadmin \
+            --dry-run=client -o yaml | kubectl apply -f -
+
       - name: Configure GHCR pull secret
         env:
           GHCR_PASSWORD: ${{ secrets.GHCR_TOKEN || secrets.GITHUB_TOKEN }}
@@ -470,12 +503,32 @@ jobs:
       - name: Prepare kustomize images
         run: |
           cd platform/k8s/overlays/${{ inputs.overlay }}
+          kustomize edit set namespace ${{ inputs.namespace }}
           for img in api-gateway web identity seller catalog search pricing inventory cart checkout payments orders fulfillment notifications reviews analytics; do
             kustomize edit set image $img=${{ env.REGISTRY }}/${{ env.REPO_LOWER }}/$img:${{ needs.meta.outputs.sha }}
           done
 
+      - name: Verify rendered namespace
+        run: |
+          cat platform/k8s/overlays/${{ inputs.overlay }}/kustomization.yaml
+          kustomize build platform/k8s/overlays/${{ inputs.overlay }} | grep -m 40 '^  namespace:'
+
+      - name: Reset immutable bootstrap jobs
+        run: |
+          kubectl delete job \
+            minio-make-bucket \
+            s3-sink-register \
+            debezium-register \
+            kafka-topics-init \
+            -n ${{ inputs.namespace }} \
+            --ignore-not-found=true
+
       - name: Apply dev overlay
         run: kubectl apply -k platform/k8s/overlays/${{ inputs.overlay }}
+
+      - name: Limit preview load balancers
+        if: ${{ inputs.preview_pr_number != '' }}
+        run: kubectl patch svc web -n ${{ inputs.namespace }} -p '{"spec":{"type":"ClusterIP"}}' || true
 
       - name: Show external services
         run: |
@@ -506,10 +559,64 @@ jobs:
             echo "If IP is pending, wait 1-3 minutes and re-check service status."
           } >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Comment preview URLs on PR
+        if: ${{ inputs.environment_name == 'dev' && inputs.preview_pr_number != '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          WEB_IP=$(kubectl get svc web -n ${{ inputs.namespace }} -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true)
+          API_IP=$(kubectl get svc api-gateway -n ${{ inputs.namespace }} -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true)
+          WEB_URL="pending"
+          API_URL="pending"
+          if [ -n "$WEB_IP" ]; then WEB_URL="http://$WEB_IP"; fi
+          if [ -n "$API_IP" ]; then API_URL="http://$API_IP"; fi
+          MARKER="<!-- gmp-preview-${{ inputs.preview_pr_number }} -->"
+          BODY="$MARKER
+          ✅ Preview environment deployed
+
+          - Namespace: \`${{ inputs.namespace }}\`
+          - Web: $WEB_URL
+          - API Gateway: $API_URL
+
+          If URL is pending, wait a few minutes and re-run deployment."
+
+          EXISTING_ID=$(gh api repos/${{ github.repository }}/issues/${{ inputs.preview_pr_number }}/comments --paginate --jq '.[] | select(.body | contains("'"$MARKER"'")) | .id' | head -n 1 || true)
+          if [ -n "$EXISTING_ID" ]; then
+            gh api repos/${{ github.repository }}/issues/comments/$EXISTING_ID -X PATCH -f body="$BODY" >/dev/null
+          else
+            gh api repos/${{ github.repository }}/issues/${{ inputs.preview_pr_number }}/comments -X POST -f body="$BODY" >/dev/null
+          fi
+
       - name: Wait for rollouts
         run: |
-          for d in api-gateway web identity seller catalog search pricing inventory cart checkout payments orders fulfillment notifications reviews analytics; do
-            kubectl rollout status deployment/$d -n ${{ inputs.namespace }} --timeout=180s || exit 1
+          NS=${{ inputs.namespace }}
+          PREVIEW_PR="${{ inputs.preview_pr_number }}"
+          diagnose_ns() {
+            kubectl get pods -n "$NS" -o wide || true
+            kubectl get events -n "$NS" --sort-by='.lastTimestamp' | tail -n 150 || true
+          }
+          check_rollout() {
+            local kind="$1"
+            local name="$2"
+            echo "Checking rollout: ${kind}/${name}"
+            if ! kubectl rollout status "${kind}/${name}" -n "$NS" --timeout=600s; then
+              kubectl describe "${kind}/${name}" -n "$NS" || true
+              kubectl describe pods -n "$NS" -l app="$name" || true
+              kubectl logs -n "$NS" -l app="$name" --all-containers --tail=200 || true
+              diagnose_ns
+              exit 1
+            fi
+          }
+          if [ -z "$PREVIEW_PR" ]; then
+            check_rollout statefulset postgres
+            check_rollout statefulset kafka
+            check_rollout statefulset opensearch
+            for d in redis minio kafka-connect; do
+              check_rollout deployment "$d"
+            done
+          fi
+          for d in identity seller catalog search pricing inventory cart checkout payments orders fulfillment notifications reviews analytics api-gateway web transformer-api; do
+            check_rollout deployment "$d"
           done
 
   # ─────────────────────────────────────────────────────────────

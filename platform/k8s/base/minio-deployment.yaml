@@ -19,7 +19,7 @@ spec:
     spec:
       containers:
         - name: minio
-          image: docker.io/minio/minio:latest
+          image: quay.io/minio/minio:RELEASE.2024-12-13T22-19-12Z
           args:
             - server
             - /data

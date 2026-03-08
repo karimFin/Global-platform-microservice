@@ -79,6 +79,7 @@ kubectl apply -k platform/k8s/base
 - `.github/workflows/ci.yml` runs service tests.
 - `.github/workflows/ci-extended.yml` runs lint, tests, image builds, SBOM, and vulnerability scans.
 - `.github/workflows/deploy.yml` deploys to dev on `dev` branch push; prod canary and promotion are manual dispatch.
+- `.github/workflows/preview-pr.yml` deploys PR previews to `pr-<number>` namespace when PR has `preview` label, comments URLs on the PR, and auto-cleans stale previews every 6 hours (24h TTL).
 
 **Secrets**
 - `KUBE_CONFIG_DEV` (base64 kubeconfig for dev)
@@ -100,6 +101,11 @@ Use one command entrypoints for learning lifecycle:
 - `make infra-destroy` → Destroy dev OCI infrastructure
 - `make up-dev` → Apply infra + generate kubeconfig + update `KUBE_CONFIG_DEV` + trigger `Deploy Dev`
 - `make infra-status` → Show Terraform state and active OCI cluster/LB
+
+Required for remote backend locking:
+- `TF_CLOUD_ORGANIZATION` (local shell env)
+- `TF_WORKSPACE` (recommended: `gmp-dev`)
+- GitHub `dev` environment secrets: `TF_CLOUD_ORGANIZATION`, `TF_API_TOKEN`
 
 Script entrypoint: `scripts/devctl.sh`  
 Full quick commands: `cmd.md`

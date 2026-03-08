@@ -9,6 +9,8 @@ GH_REF="${GH_REF:-dev}"
 WORKFLOW_NAME="${WORKFLOW_NAME:-Deploy Dev}"
 INFRA_WORKFLOW_NAME="${INFRA_WORKFLOW_NAME:-Infra Dev}"
 INFRA_CLEANUP_WORKFLOW_NAME="${INFRA_CLEANUP_WORKFLOW_NAME:-Infra Dev Cleanup}"
+TF_CLOUD_ORGANIZATION="${TF_CLOUD_ORGANIZATION:-}"
+TF_WORKSPACE="${TF_WORKSPACE:-gmp-dev}"
 CREATE_NAMESPACE="${CREATE_NAMESPACE:-true}"
 KUBECONFIG_FILE="${KUBECONFIG_FILE:-/tmp/kubeconfig-dev.yaml}"
 
@@ -44,6 +46,19 @@ tf() {
   terraform -chdir="$TF_DIR" "$@"
 }
 
+ensure_remote_backend_env() {
+  if [ -z "$TF_CLOUD_ORGANIZATION" ]; then
+    echo "TF_CLOUD_ORGANIZATION is required for remote Terraform backend."
+    exit 1
+  fi
+  export TF_CLOUD_ORGANIZATION
+  export TF_WORKSPACE
+}
+
+reconcile_state() {
+  ensure_remote_backend_env
+  bash "$ROOT_DIR/scripts/tf-reconcile-dev-state.sh"
+}
 detect_repo() {
   if [ -n "$GH_REPO" ]; then
     echo "$GH_REPO"
@@ -67,22 +82,26 @@ active_cluster_id() {
 }
 
 cmd_init() {
+  ensure_remote_backend_env
   tf init -reconfigure -upgrade
 }
 
 cmd_plan() {
   load_tf_env
+  ensure_remote_backend_env
   tf init -reconfigure
   tf plan
 }
 
 cmd_apply() {
+  reconcile_state
   load_tf_env
   tf init -reconfigure
   tf apply -auto-approve
 }
 
 cmd_destroy() {
+  reconcile_state
   load_tf_env
   tf init -reconfigure
   tf destroy -auto-approve
@@ -90,6 +109,7 @@ cmd_destroy() {
 
 cmd_status() {
   load_tf_env
+  ensure_remote_backend_env
   tf init -reconfigure >/dev/null
   echo "Terraform state resources:"
   tf state list || true
@@ -209,6 +229,7 @@ Commands:
   ci-apply     Trigger Infra Dev workflow apply
   ci-destroy   Trigger Infra Dev workflow destroy
   ci-cleanup   Trigger Infra Dev Cleanup workflow (state-independent)
+  reconcile    Import existing OCI dev resources into Terraform state
   ship-dev     Push current HEAD to dev branch
   up           Apply infra + kubeconfig secret + deploy
 EOF
@@ -228,6 +249,7 @@ main() {
     ci-apply) cmd_ci_apply ;;
     ci-destroy) cmd_ci_destroy ;;
     ci-cleanup) cmd_ci_cleanup ;;
+    reconcile) reconcile_state ;;
     ship-dev) cmd_ship_dev ;;
     up) cmd_up ;;
     *) usage; exit 1 ;;
