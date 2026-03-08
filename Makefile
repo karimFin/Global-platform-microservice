@@ -13,6 +13,19 @@ test:
 		( cd services/$$svc && npm ci && npm test ); \
 	done
 
+lint:
+	npm run lint
+	npm --prefix frontend run lint
+
+format-check:
+	npm --prefix frontend run format
+
+format-fix:
+	npm --prefix frontend exec prettier . --write
+
+format-fix-cart:
+	npm --prefix frontend exec prettier apps/web/app/cart/page.js --write
+
 infra-init:
 	bash scripts/devctl.sh init
 
