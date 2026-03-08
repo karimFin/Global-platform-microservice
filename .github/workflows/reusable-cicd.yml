@@ -366,8 +366,12 @@ jobs:
             oci ce cluster create-kubeconfig --cluster-id "$CLUSTER_OCID" --file "$CONFIG_FILE" --region "${OCI_CLI_REGION}" --token-version 2.0.0 --kube-endpoint PUBLIC_ENDPOINT
           }
 
+          PREVIEW_PR="${{ inputs.preview_pr_number }}"
           KCFG_OK=false
-          if [ -n "${KUBE_CONFIG_DEV}" ]; then
+          if [ -n "$PREVIEW_PR" ]; then
+            ensure_kubeconfig_from_oci
+            KCFG_OK=true
+          elif [ -n "${KUBE_CONFIG_DEV}" ]; then
             printf '%s' "${KUBE_CONFIG_DEV}" > "$RAW_FILE"
             if grep -q "apiVersion:" "$RAW_FILE"; then
               cp "$RAW_FILE" "$CONFIG_FILE"
@@ -489,6 +493,11 @@ jobs:
           for img in api-gateway web identity seller catalog search pricing inventory cart checkout payments orders fulfillment notifications reviews analytics; do
             kustomize edit set image $img=${{ env.REGISTRY }}/${{ env.REPO_LOWER }}/$img:${{ needs.meta.outputs.sha }}
           done
+
+      - name: Verify rendered namespace
+        run: |
+          cat platform/k8s/overlays/${{ inputs.overlay }}/kustomization.yaml
+          kustomize build platform/k8s/overlays/${{ inputs.overlay }} | grep -m 40 '^  namespace:'
 
       - name: Apply dev overlay
         run: kubectl apply -k platform/k8s/overlays/${{ inputs.overlay }}
