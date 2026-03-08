@@ -7,9 +7,6 @@ Global Marketplace Platform is a production‑oriented system built as a suite o
 **Edge and Routing**
 - Clients access the platform through the API Gateway, which routes requests to domain services.
 
-**Domain Services**
-- Core business capabilities are implemented as independent services: Identity, Catalog, Orders, Payments, Inventory, Search, Pricing, Cart, Checkout, Fulfillment, Notifications, Reviews, and Analytics.
-
 **Operational Data Plane**
 - Postgres is the system of record for transactional data.
 - Redis provides low‑latency caching.
