@@ -1,7 +1,7 @@
 # Global Marketplace Platform
 
 ## Overview
-Global Marketplace Platform is a production‑oriented e‑commerce system built as a suite of Node.js microservices. It combines an operational data plane, a streaming event plane, and a Kubernetes‑first deployment model to support resilient, scalable commerce workflows.
+Global Marketplace Platform is a production‑oriented system built as a suite of microservices. It combines an operational data plane, a streaming event plane, and a Kubernetes‑first deployment model to support resilient, scalable workflows.
 
 ## Architecture
 **Edge and Routing**
