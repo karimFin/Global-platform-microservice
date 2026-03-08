@@ -59,6 +59,18 @@ infra-destroy-ci:
 infra-cleanup-ci:
 	bash scripts/devctl.sh ci-cleanup
 
+gh-iac-init:
+	terraform -chdir=infra/terraform/envs/github init
+
+gh-iac-plan:
+	terraform -chdir=infra/terraform/envs/github plan
+
+gh-iac-apply:
+	terraform -chdir=infra/terraform/envs/github apply -auto-approve
+
+gh-iac-destroy:
+	terraform -chdir=infra/terraform/envs/github destroy -auto-approve
+
 ship-dev:
 	bash scripts/devctl.sh ship-dev
 
