@@ -1,0 +1,185 @@
+name: Preview PR
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, closed]
+    branches: [dev]
+  schedule:
+    - cron: "0 */6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+  security-events: write
+  id-token: write
+  pull-requests: write
+
+concurrency:
+  group: preview-pr-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  deploy-preview:
+    if: ${{ github.event.action != 'closed' && github.event.pull_request.head.repo.full_name == github.repository }}
+    uses: ./.github/workflows/reusable-cicd.yml
+    with:
+      environment_name: dev
+      namespace: pr-${{ github.event.pull_request.number }}
+      overlay: dev
+      deploy: true
+      build_images: true
+      push_images: true
+      sign_images: true
+      run_tests: false
+      run_frontend: false
+      validate_k8s: true
+      validate_k8s_all: false
+      policy_check: true
+      canary_checks: false
+      create_namespace: true
+      ref: ${{ github.event.pull_request.head.sha }}
+      preview_pr_number: ${{ github.event.pull_request.number }}
+    secrets: inherit
+
+  cleanup-preview:
+    if: ${{ github.event.action == 'closed' && github.event.pull_request.head.repo.full_name == github.repository }}
+    runs-on: ubuntu-latest
+    environment: dev
+    steps:
+      - name: Install OCI CLI
+        run: |
+          curl -L -O https://raw.githubusercontent.com/oracle/oci-cli/master/scripts/install/install.sh
+          bash install.sh --accept-all-defaults
+          echo "$HOME/bin" >> "$GITHUB_PATH"
+
+      - name: Configure OCI CLI
+        env:
+          OCI_CLI_USER: ${{ secrets.OCI_CLI_USER }}
+          OCI_CLI_TENANCY: ${{ secrets.OCI_CLI_TENANCY }}
+          OCI_CLI_FINGERPRINT: ${{ secrets.OCI_CLI_FINGERPRINT }}
+          OCI_CLI_KEY_CONTENT: ${{ secrets.OCI_CLI_KEY_CONTENT }}
+          OCI_CLI_REGION: ${{ secrets.OCI_CLI_REGION }}
+        run: |
+          for v in OCI_CLI_USER OCI_CLI_TENANCY OCI_CLI_FINGERPRINT OCI_CLI_KEY_CONTENT OCI_CLI_REGION; do
+            if [ -z "${!v}" ]; then
+              echo "::error::Missing required secret: $v"
+              exit 1
+            fi
+          done
+          mkdir -p ~/.oci
+          {
+            echo "[DEFAULT]"
+            echo "user=${OCI_CLI_USER}"
+            echo "fingerprint=${OCI_CLI_FINGERPRINT}"
+            echo "tenancy=${OCI_CLI_TENANCY}"
+            echo "region=${OCI_CLI_REGION}"
+            echo "key_file=~/.oci/oci_api_key.pem"
+          } > ~/.oci/config
+          RAW_KEY_STRIPPED=$(printf '%s' "${OCI_CLI_KEY_CONTENT}" | tr -d '\r')
+          if printf '%s' "$RAW_KEY_STRIPPED" | grep -q "BEGIN .*PRIVATE KEY"; then
+            printf '%s\n' "$RAW_KEY_STRIPPED" > ~/.oci/oci_api_key.pem
+          elif printf '%b' "$RAW_KEY_STRIPPED" | grep -q "BEGIN .*PRIVATE KEY"; then
+            printf '%b' "$RAW_KEY_STRIPPED" > ~/.oci/oci_api_key.pem
+          elif printf '%s' "$RAW_KEY_STRIPPED" | base64 -d > ~/.oci/oci_api_key.pem 2>/dev/null; then
+            :
+          else
+            printf '%b' "$RAW_KEY_STRIPPED" > ~/.oci/oci_api_key.pem
+          fi
+          chmod 600 ~/.oci/config ~/.oci/oci_api_key.pem
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: 'v1.30.2'
+
+      - name: Configure kubeconfig from OCI
+        run: |
+          set -euo pipefail
+          mkdir -p $HOME/.kube
+          CLUSTER_OCID=$(oci ce cluster list --compartment-id "${{ secrets.OCI_CLI_TENANCY }}" --all --query 'data[?name==`gmp-oke-dev` && "lifecycle-state"==`ACTIVE`] | [-1].id' --raw-output 2>/dev/null || true)
+          if [ -z "$CLUSTER_OCID" ] || [ "$CLUSTER_OCID" = "null" ]; then
+            echo "::error::No ACTIVE gmp-oke-dev cluster found"
+            exit 1
+          fi
+          oci ce cluster create-kubeconfig --cluster-id "$CLUSTER_OCID" --file "$HOME/.kube/config" --region "${{ secrets.OCI_CLI_REGION }}" --token-version 2.0.0 --kube-endpoint PUBLIC_ENDPOINT
+          chmod 600 "$HOME/.kube/config"
+
+      - name: Delete preview namespace
+        run: |
+          NS="pr-${{ github.event.pull_request.number }}"
+          kubectl delete namespace "$NS" --ignore-not-found=true --wait=true
+
+  cleanup-stale-preview:
+    if: ${{ github.event_name != 'pull_request' }}
+    runs-on: ubuntu-latest
+    environment: dev
+    steps:
+      - name: Install OCI CLI
+        run: |
+          curl -L -O https://raw.githubusercontent.com/oracle/oci-cli/master/scripts/install/install.sh
+          bash install.sh --accept-all-defaults
+          echo "$HOME/bin" >> "$GITHUB_PATH"
+
+      - name: Configure OCI CLI
+        env:
+          OCI_CLI_USER: ${{ secrets.OCI_CLI_USER }}
+          OCI_CLI_TENANCY: ${{ secrets.OCI_CLI_TENANCY }}
+          OCI_CLI_FINGERPRINT: ${{ secrets.OCI_CLI_FINGERPRINT }}
+          OCI_CLI_KEY_CONTENT: ${{ secrets.OCI_CLI_KEY_CONTENT }}
+          OCI_CLI_REGION: ${{ secrets.OCI_CLI_REGION }}
+        run: |
+          for v in OCI_CLI_USER OCI_CLI_TENANCY OCI_CLI_FINGERPRINT OCI_CLI_KEY_CONTENT OCI_CLI_REGION; do
+            if [ -z "${!v}" ]; then
+              echo "::error::Missing required secret: $v"
+              exit 1
+            fi
+          done
+          mkdir -p ~/.oci
+          {
+            echo "[DEFAULT]"
+            echo "user=${OCI_CLI_USER}"
+            echo "fingerprint=${OCI_CLI_FINGERPRINT}"
+            echo "tenancy=${OCI_CLI_TENANCY}"
+            echo "region=${OCI_CLI_REGION}"
+            echo "key_file=~/.oci/oci_api_key.pem"
+          } > ~/.oci/config
+          RAW_KEY_STRIPPED=$(printf '%s' "${OCI_CLI_KEY_CONTENT}" | tr -d '\r')
+          if printf '%s' "$RAW_KEY_STRIPPED" | grep -q "BEGIN .*PRIVATE KEY"; then
+            printf '%s\n' "$RAW_KEY_STRIPPED" > ~/.oci/oci_api_key.pem
+          elif printf '%b' "$RAW_KEY_STRIPPED" | grep -q "BEGIN .*PRIVATE KEY"; then
+            printf '%b' "$RAW_KEY_STRIPPED" > ~/.oci/oci_api_key.pem
+          elif printf '%s' "$RAW_KEY_STRIPPED" | base64 -d > ~/.oci/oci_api_key.pem 2>/dev/null; then
+            :
+          else
+            printf '%b' "$RAW_KEY_STRIPPED" > ~/.oci/oci_api_key.pem
+          fi
+          chmod 600 ~/.oci/config ~/.oci/oci_api_key.pem
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: 'v1.30.2'
+
+      - name: Configure kubeconfig from OCI
+        run: |
+          set -euo pipefail
+          mkdir -p $HOME/.kube
+          CLUSTER_OCID=$(oci ce cluster list --compartment-id "${{ secrets.OCI_CLI_TENANCY }}" --all --query 'data[?name==`gmp-oke-dev` && "lifecycle-state"==`ACTIVE`] | [-1].id' --raw-output 2>/dev/null || true)
+          if [ -z "$CLUSTER_OCID" ] || [ "$CLUSTER_OCID" = "null" ]; then
+            echo "::error::No ACTIVE gmp-oke-dev cluster found"
+            exit 1
+          fi
+          oci ce cluster create-kubeconfig --cluster-id "$CLUSTER_OCID" --file "$HOME/.kube/config" --region "${{ secrets.OCI_CLI_REGION }}" --token-version 2.0.0 --kube-endpoint PUBLIC_ENDPOINT
+          chmod 600 "$HOME/.kube/config"
+
+      - name: Delete stale preview namespaces by TTL
+        run: |
+          set -euo pipefail
+          NOW=$(date +%s)
+          kubectl get ns -o json | jq -r '.items[] | select(.metadata.labels["preview.gmp/enabled"]=="true") | [.metadata.name, (.metadata.labels["preview.gmp/created-at"] // "0"), (.metadata.labels["preview.gmp/ttl-hours"] // "24")] | @tsv' | while IFS=$'\t' read -r NS CREATED TTL; do
+            EXPIRE=$((CREATED + TTL * 3600))
+            if [ "$NOW" -ge "$EXPIRE" ]; then
+              kubectl delete namespace "$NS" --ignore-not-found=true --wait=true
+            fi
+          done

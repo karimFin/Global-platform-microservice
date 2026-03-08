@@ -77,6 +77,10 @@ on:
         required: false
         type: string
         default: ""
+      preview_pr_number:
+        required: false
+        type: string
+        default: ""
 
 env:
   REGISTRY: ghcr.io
@@ -450,6 +454,17 @@ jobs:
         if: ${{ inputs.create_namespace }}
         run: kubectl get namespace ${{ inputs.namespace }} || kubectl create namespace ${{ inputs.namespace }}
 
+      - name: Label preview namespace TTL
+        if: ${{ inputs.preview_pr_number != '' }}
+        run: |
+          NOW=$(date +%s)
+          kubectl label namespace ${{ inputs.namespace }} \
+            preview.gmp/enabled=true \
+            preview.gmp/pr=${{ inputs.preview_pr_number }} \
+            preview.gmp/created-at="$NOW" \
+            preview.gmp/ttl-hours=24 \
+            --overwrite=true
+
       - name: Configure GHCR pull secret
         env:
           GHCR_PASSWORD: ${{ secrets.GHCR_TOKEN || secrets.GITHUB_TOKEN }}
@@ -505,6 +520,34 @@ jobs:
             echo ""
             echo "If IP is pending, wait 1-3 minutes and re-check service status."
           } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Comment preview URLs on PR
+        if: ${{ inputs.environment_name == 'dev' && inputs.preview_pr_number != '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          WEB_IP=$(kubectl get svc web -n ${{ inputs.namespace }} -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true)
+          API_IP=$(kubectl get svc api-gateway -n ${{ inputs.namespace }} -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true)
+          WEB_URL="pending"
+          API_URL="pending"
+          if [ -n "$WEB_IP" ]; then WEB_URL="http://$WEB_IP"; fi
+          if [ -n "$API_IP" ]; then API_URL="http://$API_IP"; fi
+          MARKER="<!-- gmp-preview-${{ inputs.preview_pr_number }} -->"
+          BODY="$MARKER
+          ✅ Preview environment deployed
+
+          - Namespace: \`${{ inputs.namespace }}\`
+          - Web: $WEB_URL
+          - API Gateway: $API_URL
+
+          If URL is pending, wait a few minutes and re-run deployment."
+
+          EXISTING_ID=$(gh api repos/${{ github.repository }}/issues/${{ inputs.preview_pr_number }}/comments --paginate --jq '.[] | select(.body | contains("'"$MARKER"'")) | .id' | head -n 1 || true)
+          if [ -n "$EXISTING_ID" ]; then
+            gh api repos/${{ github.repository }}/issues/comments/$EXISTING_ID -X PATCH -f body="$BODY" >/dev/null
+          else
+            gh api repos/${{ github.repository }}/issues/${{ inputs.preview_pr_number }}/comments -X POST -f body="$BODY" >/dev/null
+          fi
 
       - name: Wait for rollouts
         run: |
