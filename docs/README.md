@@ -10,6 +10,7 @@
 
 ## IaC and platform governance
 - `IAC_ADOPTION_PLAN.md`: what is already declarative and what to convert next
+- `GITHUB_SECRETS_GOVERNANCE.md`: Terraform-based secret policy and rotation model
 
 ### GitHub governance IaC
 Terraform stack path:
