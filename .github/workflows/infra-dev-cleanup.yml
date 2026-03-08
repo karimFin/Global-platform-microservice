@@ -1,0 +1,97 @@
+name: Infra Dev Cleanup
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: "Type DELETE to run destructive OCI cleanup"
+        required: true
+        default: "NO"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: infra-dev-cleanup
+  cancel-in-progress: false
+
+jobs:
+  cleanup:
+    if: ${{ github.event.inputs.confirm == 'DELETE' }}
+    runs-on: ubuntu-latest
+    environment: dev
+    env:
+      COMPARTMENT_OCID: ${{ secrets.OCI_COMPARTMENT_OCID != '' && secrets.OCI_COMPARTMENT_OCID || secrets.OCI_CLI_TENANCY }}
+    steps:
+      - name: Install OCI CLI
+        run: |
+          curl -L -O https://raw.githubusercontent.com/oracle/oci-cli/master/scripts/install/install.sh
+          bash install.sh --accept-all-defaults
+          echo "$HOME/bin" >> "$GITHUB_PATH"
+
+      - name: Configure OCI CLI
+        env:
+          OCI_CLI_USER: ${{ secrets.OCI_CLI_USER }}
+          OCI_CLI_TENANCY: ${{ secrets.OCI_CLI_TENANCY }}
+          OCI_CLI_FINGERPRINT: ${{ secrets.OCI_CLI_FINGERPRINT }}
+          OCI_CLI_KEY_CONTENT: ${{ secrets.OCI_CLI_KEY_CONTENT }}
+          OCI_CLI_REGION: ${{ secrets.OCI_CLI_REGION }}
+        run: |
+          for v in OCI_CLI_USER OCI_CLI_TENANCY OCI_CLI_FINGERPRINT OCI_CLI_KEY_CONTENT OCI_CLI_REGION; do
+            if [ -z "${!v}" ]; then
+              echo "::error::Missing required secret: $v"
+              exit 1
+            fi
+          done
+          mkdir -p ~/.oci
+          {
+            echo "[DEFAULT]"
+            echo "user=${OCI_CLI_USER}"
+            echo "fingerprint=${OCI_CLI_FINGERPRINT}"
+            echo "tenancy=${OCI_CLI_TENANCY}"
+            echo "region=${OCI_CLI_REGION}"
+            echo "key_file=~/.oci/oci_api_key.pem"
+          } > ~/.oci/config
+          RAW_KEY_STRIPPED=$(printf '%s' "${OCI_CLI_KEY_CONTENT}" | tr -d '\r')
+          if printf '%s' "$RAW_KEY_STRIPPED" | grep -q "BEGIN .*PRIVATE KEY"; then
+            printf '%s\n' "$RAW_KEY_STRIPPED" > ~/.oci/oci_api_key.pem
+          elif printf '%b' "$RAW_KEY_STRIPPED" | grep -q "BEGIN .*PRIVATE KEY"; then
+            printf '%b' "$RAW_KEY_STRIPPED" > ~/.oci/oci_api_key.pem
+          elif printf '%s' "$RAW_KEY_STRIPPED" | base64 -d > ~/.oci/oci_api_key.pem 2>/dev/null; then
+            :
+          else
+            printf '%b' "$RAW_KEY_STRIPPED" > ~/.oci/oci_api_key.pem
+          fi
+          chmod 600 ~/.oci/config ~/.oci/oci_api_key.pem
+
+      - name: Cleanup OKE, LBs and GMP network artifacts
+        run: |
+          set -euo pipefail
+
+          echo "Deleting ACTIVE node pools for gmp-oke-dev clusters"
+          for cid in $(oci ce cluster list --compartment-id "$COMPARTMENT_OCID" --all --output json | jq -r '.data[] | select(."lifecycle-state"=="ACTIVE" and .name=="gmp-oke-dev") | .id'); do
+            for np in $(oci ce node-pool list --compartment-id "$COMPARTMENT_OCID" --cluster-id "$cid" --all --output json | jq -r '.data[] | select(."lifecycle-state"=="ACTIVE") | .id'); do
+              oci ce node-pool delete --node-pool-id "$np" --force --wait-for-state SUCCEEDED --max-wait-seconds 3600 || true
+            done
+            oci ce cluster delete --cluster-id "$cid" --force --wait-for-state SUCCEEDED --max-wait-seconds 3600 || true
+          done
+
+          echo "Deleting ACTIVE load balancers"
+          for lb in $(oci lb load-balancer list --compartment-id "$COMPARTMENT_OCID" --all --output json | jq -r '.data[] | select(."lifecycle-state"=="ACTIVE") | .id'); do
+            oci lb load-balancer delete --load-balancer-id "$lb" --force --wait-for-state SUCCEEDED --max-wait-seconds 3600 || true
+          done
+
+          echo "Deleting NAT gateways named gmp-nat"
+          for nat in $(oci network nat-gateway list --compartment-id "$COMPARTMENT_OCID" --all --output json | jq -r '.data[] | select(."lifecycle-state"=="AVAILABLE" and ."display-name"=="gmp-nat") | .id'); do
+            oci network nat-gateway delete --nat-gateway-id "$nat" --force || true
+          done
+
+          echo "Attempting to delete VCNs named gmp-vcn if now empty"
+          for vcn in $(oci network vcn list --compartment-id "$COMPARTMENT_OCID" --all --output json | jq -r '.data[] | select(."lifecycle-state"=="AVAILABLE" and ."display-name"=="gmp-vcn") | .id'); do
+            oci network vcn delete --vcn-id "$vcn" --force || true
+          done
+
+          echo "Remaining ACTIVE clusters:"
+          oci ce cluster list --compartment-id "$COMPARTMENT_OCID" --all --output json | jq -r '.data[] | select(."lifecycle-state"=="ACTIVE") | .name + " " + .id' || true
+          echo "Remaining ACTIVE load balancers:"
+          oci lb load-balancer list --compartment-id "$COMPARTMENT_OCID" --all --output json | jq -r '.data[] | select(."lifecycle-state"=="ACTIVE") | ."display-name" + " " + .id' || true

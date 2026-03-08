@@ -43,6 +43,9 @@ infra-apply-ci:
 infra-destroy-ci:
 	bash scripts/devctl.sh ci-destroy
 
+infra-cleanup-ci:
+	bash scripts/devctl.sh ci-cleanup
+
 ship-dev:
 	bash scripts/devctl.sh ship-dev
 

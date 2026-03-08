@@ -85,3 +85,25 @@ jobs:
       - name: Terraform destroy
         if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'destroy' }}
         run: terraform -chdir=infra/terraform/envs/dev destroy -auto-approve
+
+      - name: Detect drift after destroy
+        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'destroy' }}
+        run: |
+          set -euo pipefail
+          curl -L -O https://raw.githubusercontent.com/oracle/oci-cli/master/scripts/install/install.sh
+          bash install.sh --accept-all-defaults
+          export PATH="$HOME/bin:$PATH"
+          {
+            echo "[DEFAULT]"
+            echo "user=${TF_VAR_user_ocid}"
+            echo "fingerprint=${TF_VAR_fingerprint}"
+            echo "tenancy=${TF_VAR_tenancy_ocid}"
+            echo "region=${TF_VAR_region}"
+            echo "key_file=~/.oci/oci_api_key.pem"
+          } > ~/.oci/config
+          REMAINING_CLUSTERS=$(oci ce cluster list --compartment-id "$TF_VAR_compartment_ocid" --all --output json | jq -r '.data[] | select(."lifecycle-state"=="ACTIVE" and .name=="gmp-oke-dev") | .id' | wc -l | xargs)
+          REMAINING_LBS=$(oci lb load-balancer list --compartment-id "$TF_VAR_compartment_ocid" --all --output json | jq -r '.data[] | select(."lifecycle-state"=="ACTIVE") | .id' | wc -l | xargs)
+          if [ "$REMAINING_CLUSTERS" -gt 0 ] || [ "$REMAINING_LBS" -gt 0 ]; then
+            echo "::warning::Terraform state drift detected. Active OCI resources still exist."
+            echo "::warning::Run Infra Dev Cleanup workflow or: make infra-cleanup-ci"
+          fi

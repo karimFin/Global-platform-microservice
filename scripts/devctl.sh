@@ -8,6 +8,7 @@ GH_REPO="${GH_REPO:-}"
 GH_REF="${GH_REF:-dev}"
 WORKFLOW_NAME="${WORKFLOW_NAME:-Deploy Dev}"
 INFRA_WORKFLOW_NAME="${INFRA_WORKFLOW_NAME:-Infra Dev}"
+INFRA_CLEANUP_WORKFLOW_NAME="${INFRA_CLEANUP_WORKFLOW_NAME:-Infra Dev Cleanup}"
 CREATE_NAMESPACE="${CREATE_NAMESPACE:-true}"
 KUBECONFIG_FILE="${KUBECONFIG_FILE:-/tmp/kubeconfig-dev.yaml}"
 
@@ -158,6 +159,30 @@ cmd_ci_destroy() {
     -f action=destroy
 }
 
+cmd_ci_cleanup() {
+  local repo
+  repo="$(detect_repo)"
+  local workflows
+  workflows="$(gh workflow list --repo "$repo")"
+  if printf '%s\n' "$workflows" | grep -q "^${INFRA_CLEANUP_WORKFLOW_NAME}[[:space:]]"; then
+    gh workflow run "$INFRA_CLEANUP_WORKFLOW_NAME" \
+      --repo "$repo" \
+      --ref "$GH_REF" \
+      -f confirm=DELETE
+    return
+  fi
+  if printf '%s\n' "$workflows" | grep -q "infra-dev-cleanup.yml"; then
+    gh workflow run "infra-dev-cleanup.yml" \
+      --repo "$repo" \
+      --ref "$GH_REF" \
+      -f confirm=DELETE
+    return
+  fi
+  echo "Cleanup workflow not found in repo $repo."
+  echo "Push .github/workflows/infra-dev-cleanup.yml to branch '$GH_REF' first."
+  exit 1
+}
+
 cmd_ship_dev() {
   git -C "$ROOT_DIR" push origin HEAD:dev
 }
@@ -183,6 +208,7 @@ Commands:
   deploy       Trigger Deploy Dev workflow
   ci-apply     Trigger Infra Dev workflow apply
   ci-destroy   Trigger Infra Dev workflow destroy
+  ci-cleanup   Trigger Infra Dev Cleanup workflow (state-independent)
   ship-dev     Push current HEAD to dev branch
   up           Apply infra + kubeconfig secret + deploy
 EOF
@@ -201,6 +227,7 @@ main() {
     deploy) cmd_deploy ;;
     ci-apply) cmd_ci_apply ;;
     ci-destroy) cmd_ci_destroy ;;
+    ci-cleanup) cmd_ci_cleanup ;;
     ship-dev) cmd_ship_dev ;;
     up) cmd_up ;;
     *) usage; exit 1 ;;

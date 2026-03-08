@@ -20,9 +20,11 @@ This pushes current code to `dev`.
 ```bash
 make infra-apply-ci
 make infra-destroy-ci
+make infra-cleanup-ci
 ```
 
 This is team-safe because infra is managed centrally with repo secrets in CI.
+If state drift happened and `infra-destroy-ci` shows `0 destroyed`, use `infra-cleanup-ci`.
 
 ## Local full automation
 
