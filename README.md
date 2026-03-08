@@ -31,25 +31,6 @@ GPM is a production‑oriented system built as a suite of microservices. It comb
 4. Data changes → Debezium → Kafka topics
 5. Kafka Connect → MinIO (JSONL event archives)
 
-## Repository Structure
-- `services/` → Backend microservices
-- `frontend/` → Web application
-- `platform/k8s/` → Kubernetes base and overlays
-- `infra/` → Infrastructure configs and connector definitions
-
-## Local Development
-**Prereqs**: Docker Desktop, Node.js 20+
-
-1. Start services and infrastructure:
-   - `make dev` or `docker compose up --build`
-2. Infrastructure endpoints:
-   - Postgres: localhost:5432
-   - Redis: localhost:6379
-   - Kafka: localhost:9092
-   - Kafka Connect: http://localhost:8083
-   - OpenSearch: http://localhost:9200
-   - MinIO: http://localhost:9000 (S3), http://localhost:9001 (console)
-
 ## Kubernetes
 **Prereqs**
 - Secrets:
