@@ -21,10 +21,10 @@ format-check:
 	npm --prefix frontend run format
 
 format-fix:
-	npm --prefix frontend exec prettier . --write
+	cd frontend && npx prettier . --write
 
 format-fix-cart:
-	npm --prefix frontend exec prettier apps/web/app/cart/page.js --write
+	cd frontend && npx prettier apps/web/app/cart/page.js --write
 
 infra-init:
 	bash scripts/devctl.sh init
