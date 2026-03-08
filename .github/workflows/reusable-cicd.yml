@@ -552,8 +552,22 @@ jobs:
 
       - name: Wait for rollouts
         run: |
-          for d in api-gateway web identity seller catalog search pricing inventory cart checkout payments orders fulfillment notifications reviews analytics; do
-            kubectl rollout status deployment/$d -n ${{ inputs.namespace }} --timeout=180s || exit 1
+          NS=${{ inputs.namespace }}
+          kubectl rollout status statefulset/postgres -n "$NS" --timeout=600s
+          kubectl rollout status statefulset/kafka -n "$NS" --timeout=600s
+          kubectl rollout status statefulset/opensearch -n "$NS" --timeout=600s
+          for d in redis minio kafka-connect; do
+            kubectl rollout status deployment/$d -n "$NS" --timeout=600s
+          done
+          for d in identity seller catalog search pricing inventory cart checkout payments orders fulfillment notifications reviews analytics api-gateway web transformer-api; do
+            if ! kubectl rollout status deployment/$d -n "$NS" --timeout=600s; then
+              kubectl get pods -n "$NS" -o wide || true
+              kubectl get events -n "$NS" --sort-by='.lastTimestamp' | tail -n 120 || true
+              kubectl describe deployment/$d -n "$NS" || true
+              kubectl describe pods -n "$NS" -l app=$d || true
+              kubectl logs -n "$NS" -l app=$d --all-containers --tail=200 || true
+              exit 1
+            fi
           done
 
   # ─────────────────────────────────────────────────────────────
