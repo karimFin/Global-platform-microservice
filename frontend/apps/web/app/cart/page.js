@@ -10,7 +10,7 @@ export default function CartPage() {
   }, [])
   return (
     <div className="grid" style={{ gap: 24 }}>
-      <PageHeader title="Cart" subtitle="Review selected items and prepare for checkout." />
+      <PageHeader title="Cart" subtitle="Review selected items and prepare for checkout. continue" />
       <Section title="Current Items">
         {!cart ? (
           <div className="empty">Loading cart...</div>
