@@ -12,7 +12,7 @@ export default function CartPage() {
     <div className="grid" style={{ gap: 24 }}>
       <PageHeader
         title="Cart"
-        subtitle="Review selected items and prepare for checkout. continue"
+        subtitle="Review selected items and prepare for checkout"
       />
       <Section title="Current Items">
         {!cart ? (
