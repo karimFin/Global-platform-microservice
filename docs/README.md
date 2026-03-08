@@ -45,3 +45,10 @@ Destroy only when intentionally removing governance:
 ```bash
 make gh-iac-destroy
 ```
+
+## Independent tool READMEs
+- `tools/ARCHITECTURE_DOCUMENTATION_README.md`
+- `tools/GRAFANA_OBSERVABILITY_README.md`
+- `tools/PREVIEW_IAC_OVERLAY_README.md`
+- `tools/GITHUB_GOVERNANCE_IAC_README.md`
+- `tools/SECRETS_GOVERNANCE_ROTATION_README.md`
