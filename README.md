@@ -94,6 +94,7 @@ Use one command entrypoints for learning lifecycle:
 - `make ship-dev` → Push current branch to `dev` (auto-triggers `Deploy Dev`)
 - `make infra-apply-ci` → Run Terraform apply in GitHub Actions (`Infra Dev`)
 - `make infra-destroy-ci` → Run Terraform destroy in GitHub Actions (`Infra Dev`)
+- `make infra-cleanup-ci` → Force cleanup in OCI when Terraform state drift happened (`Infra Dev Cleanup`)
 - `make infra-plan` → Terraform plan for `infra/terraform/envs/dev`
 - `make infra-apply` → Create/update dev OCI infrastructure
 - `make infra-destroy` → Destroy dev OCI infrastructure
