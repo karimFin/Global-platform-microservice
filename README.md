@@ -91,6 +91,7 @@ Required for remote backend locking:
 
 Script entrypoint: `scripts/devctl.sh`  
 Full quick commands: `cmd.md`
+Docs index: `docs/README.md`
 
 ## Roadmap
 - OpenSearch indexing pipelines
