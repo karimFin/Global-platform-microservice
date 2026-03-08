@@ -60,6 +60,7 @@ make gh-iac-destroy
 - `tools/OPENSEARCH_README.md`
 - `tools/MINIO_OBJECT_STORAGE_README.md`
 - `tools/PROJECT_STRUCTURE_README.md`
+- `tools/TOOLS_MAP.md`
 
 ## Tool matrix
 | Tool | Purpose | Owner | Operational command |
