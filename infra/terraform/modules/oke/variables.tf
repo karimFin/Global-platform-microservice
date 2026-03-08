@@ -10,8 +10,16 @@ variable "vcn_id" {
   type = string
 }
 
-variable "subnet_ids" {
+variable "endpoint_subnet_id" {
+  type = string
+}
+
+variable "service_lb_subnet_ids" {
   type = list(string)
+}
+
+variable "node_subnet_id" {
+  type = string
 }
 
 variable "availability_domain" {
@@ -25,7 +33,7 @@ variable "kubernetes_version" {
 
 variable "node_shape" {
   type    = string
-  default = "VM.Standard.E4.Flex"
+  default = "VM.Standard.A1.Flex"
 }
 
 variable "node_ocpus" {
@@ -41,4 +49,9 @@ variable "node_memory_gbs" {
 variable "node_pool_size" {
   type    = number
   default = 1
+}
+
+variable "node_image_id" {
+  type    = string
+  default = null
 }

@@ -35,7 +35,7 @@ jobs:
     uses: ./.github/workflows/reusable-cicd.yml
     with:
       environment_name: dev
-      namespace: ${{ github.event.inputs.namespace || 'marketplace-dev' }}
+      namespace: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.namespace || 'marketplace-dev' }}
       overlay: dev
       deploy: true
       build_images: true
@@ -47,6 +47,6 @@ jobs:
       validate_k8s_all: false
       policy_check: true
       canary_checks: false
-      create_namespace: ${{ github.event.inputs.create_namespace != '' && github.event.inputs.create_namespace || true }}
-      ref: ${{ github.event.inputs.ref }}
+      create_namespace: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.create_namespace == 'true' || true }}
+      ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.ref || '' }}
     secrets: inherit

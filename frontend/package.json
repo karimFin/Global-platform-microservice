@@ -12,7 +12,8 @@
     "start": "npm --workspace @gmp/web run start",
     "lint": "eslint . --max-warnings=0",
     "format": "prettier . -c",
-    "format:write": "prettier . -w"
+    "format:write": "prettier . -w",
+    "format:fix": "npm run format:write --prefix frontend"
   },
   "devDependencies": {
     "eslint": "^8.57.0",

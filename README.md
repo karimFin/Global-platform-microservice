@@ -79,6 +79,7 @@ kubectl apply -k platform/k8s/base
 - `.github/workflows/ci.yml` runs service tests.
 - `.github/workflows/ci-extended.yml` runs lint, tests, image builds, SBOM, and vulnerability scans.
 - `.github/workflows/deploy.yml` deploys to dev on `dev` branch push; prod canary and promotion are manual dispatch.
+- `.github/workflows/preview-pr.yml` deploys PR previews to `pr-<number>` namespace when PR has `preview` label, comments URLs on the PR, and auto-cleans stale previews every 6 hours (24h TTL).
 
 **Secrets**
 - `KUBE_CONFIG_DEV` (base64 kubeconfig for dev)
@@ -88,6 +89,26 @@ kubectl apply -k platform/k8s/base
 - Topics: `platform/k8s/base/topics-job.yaml`
 - Connector configs: `infra/dev/*.json` and `platform/k8s/base/*-configmap.yaml`
 - Rollback: `kubectl rollout undo deployment/<name> -n <namespace>`
+
+## OCI Dev Automation
+Use one command entrypoints for learning lifecycle:
+- `make ship-dev` → Push current branch to `dev` (auto-triggers `Deploy Dev`)
+- `make infra-apply-ci` → Run Terraform apply in GitHub Actions (`Infra Dev`)
+- `make infra-destroy-ci` → Run Terraform destroy in GitHub Actions (`Infra Dev`)
+- `make infra-cleanup-ci` → Force cleanup in OCI when Terraform state drift happened (`Infra Dev Cleanup`)
+- `make infra-plan` → Terraform plan for `infra/terraform/envs/dev`
+- `make infra-apply` → Create/update dev OCI infrastructure
+- `make infra-destroy` → Destroy dev OCI infrastructure
+- `make up-dev` → Apply infra + generate kubeconfig + update `KUBE_CONFIG_DEV` + trigger `Deploy Dev`
+- `make infra-status` → Show Terraform state and active OCI cluster/LB
+
+Required for remote backend locking:
+- `TF_CLOUD_ORGANIZATION` (local shell env)
+- `TF_WORKSPACE` (recommended: `gmp-dev`)
+- GitHub `dev` environment secrets: `TF_CLOUD_ORGANIZATION`, `TF_API_TOKEN`
+
+Script entrypoint: `scripts/devctl.sh`  
+Full quick commands: `cmd.md`
 
 ## Roadmap
 - OpenSearch indexing pipelines

@@ -5,7 +5,7 @@ resource "oci_containerengine_cluster" "this" {
   vcn_id             = var.vcn_id
   endpoint_config {
     is_public_ip_enabled = true
-    subnet_id            = var.subnet_ids[0]
+    subnet_id            = var.endpoint_subnet_id
   }
   options {
     add_ons {
@@ -15,7 +15,7 @@ resource "oci_containerengine_cluster" "this" {
     admission_controller_options {
       is_pod_security_policy_enabled = false
     }
-    service_lb_subnet_ids = [var.subnet_ids[0]]
+    service_lb_subnet_ids = var.service_lb_subnet_ids
   }
 }
 
@@ -28,13 +28,21 @@ resource "oci_containerengine_node_pool" "pool" {
     size = var.node_pool_size
     placement_configs {
       availability_domain = var.availability_domain
-      subnet_id = var.subnet_ids[0]
+      subnet_id           = var.node_subnet_id
     }
-    is_pv_encryption_in_transit_enabled = true
+    is_pv_encryption_in_transit_enabled = false
   }
   node_shape = var.node_shape
   node_shape_config {
     ocpus         = var.node_ocpus
     memory_in_gbs = var.node_memory_gbs
+  }
+
+  dynamic "node_source_details" {
+    for_each = var.node_image_id == null ? [] : [var.node_image_id]
+    content {
+      source_type = "IMAGE"
+      image_id    = node_source_details.value
+    }
   }
 }

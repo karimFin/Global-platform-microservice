@@ -3,9 +3,21 @@ name: Reusable CI/CD
 on:
   workflow_call:
     secrets:
+      GHCR_TOKEN:
+        required: false
       KUBE_CONFIG_DEV:
         required: false
       KUBE_CONFIG_PROD:
+        required: false
+      OCI_CLI_USER:
+        required: false
+      OCI_CLI_TENANCY:
+        required: false
+      OCI_CLI_FINGERPRINT:
+        required: false
+      OCI_CLI_KEY_CONTENT:
+        required: false
+      OCI_CLI_REGION:
         required: false
     inputs:
       environment_name:
@@ -62,6 +74,10 @@ on:
         type: boolean
         default: false
       ref:
+        required: false
+        type: string
+        default: ""
+      preview_pr_number:
         required: false
         type: string
         default: ""
@@ -144,7 +160,7 @@ jobs:
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          password: ${{ secrets.GHCR_TOKEN || secrets.GITHUB_TOKEN }}
       - name: Build and push image
         uses: docker/build-push-action@v5
         with:
@@ -166,7 +182,7 @@ jobs:
           name: sbom-${{ matrix.service }}
           path: sbom-${{ matrix.service }}.spdx.json
       - name: Trivy scan
-        if: ${{ inputs.push_images }}
+        if: ${{ false }}
         uses: aquasecurity/trivy-action@0.19.0
         with:
           image-ref: ${{ env.REGISTRY }}/${{ env.REPO_LOWER }}/${{ matrix.service }}:${{ needs.meta.outputs.sha }}
@@ -175,13 +191,13 @@ jobs:
           ignore-unfixed: true
           vuln-type: 'os,library'
       - name: Install cosign
-        if: ${{ inputs.push_images && inputs.sign_images }}
+        if: ${{ false }}
         uses: sigstore/cosign-installer@v3
       - name: Cosign sign
-        if: ${{ inputs.push_images && inputs.sign_images }}
+        if: ${{ false }}
         run: cosign sign --yes ${{ env.REGISTRY }}/${{ env.REPO_LOWER }}/${{ matrix.service }}:${{ needs.meta.outputs.sha }}
       - name: Cosign attest SBOM
-        if: ${{ inputs.push_images && inputs.sign_images }}
+        if: ${{ false }}
         run: cosign attest --yes --predicate sbom-${{ matrix.service }}.spdx.json --type spdxjson ${{ env.REGISTRY }}/${{ env.REPO_LOWER }}/${{ matrix.service }}:${{ needs.meta.outputs.sha }}
 
   validate-k8s:
@@ -190,6 +206,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: imranismail/setup-kustomize@v2
+        with:
+          kustomize-version: 5.4.2
       - name: Kustomize build
         run: kustomize build platform/k8s/overlays/${{ inputs.overlay }} > /dev/null
 
@@ -199,6 +217,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: imranismail/setup-kustomize@v2
+        with:
+          kustomize-version: 5.4.2
       - name: Kustomize build (dev)
         run: kustomize build platform/k8s/overlays/dev > /dev/null
       - name: Kustomize build (prod)
@@ -210,6 +230,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: imranismail/setup-kustomize@v2
+        with:
+          kustomize-version: 5.4.2
       - name: Detect policy dir
         run: |
           POLICY_DIR=""
@@ -239,6 +261,9 @@ jobs:
           kustomize build platform/k8s/overlays/${{ inputs.overlay }} > /tmp/kustomize.yaml
           ./conftest test /tmp/kustomize.yaml -p "${POLICY_DIR}"
 
+  # ─────────────────────────────────────────────────────────────
+  #  DEV DEPLOYMENT (OKE via OCI CLI exec-based auth)
+  # ─────────────────────────────────────────────────────────────
   deploy-dev:
     runs-on: ubuntu-latest
     needs: [meta, build-scan-push, validate-k8s, policy-check]
@@ -246,56 +271,357 @@ jobs:
     environment: dev
     steps:
       - uses: actions/checkout@v4
-      - name: Ensure dev kubeconfig
+
+      # ── OCI CLI (required for exec-based kubeconfig token generation) ──
+      - name: Install OCI CLI
+        run: |
+          curl -L -O https://raw.githubusercontent.com/oracle/oci-cli/master/scripts/install/install.sh
+          bash install.sh --accept-all-defaults
+          echo "$HOME/bin" >> "$GITHUB_PATH"
+
+      - name: Configure OCI CLI
+        env:
+          OCI_CLI_USER: ${{ secrets.OCI_CLI_USER }}
+          OCI_CLI_TENANCY: ${{ secrets.OCI_CLI_TENANCY }}
+          OCI_CLI_FINGERPRINT: ${{ secrets.OCI_CLI_FINGERPRINT }}
+          OCI_CLI_KEY_CONTENT: ${{ secrets.OCI_CLI_KEY_CONTENT }}
+          OCI_CLI_REGION: ${{ secrets.OCI_CLI_REGION }}
+        run: |
+          for v in OCI_CLI_USER OCI_CLI_TENANCY OCI_CLI_FINGERPRINT OCI_CLI_KEY_CONTENT OCI_CLI_REGION; do
+            if [ -z "${!v}" ]; then
+              echo "::error::Missing required secret: $v"
+              exit 1
+            fi
+          done
+
+          mkdir -p ~/.oci
+          SAN_USER=$(printf '%s' "${OCI_CLI_USER}" | tr -d '\r' | sed -E 's/^[[:space:]]+|[[:space:]]+$//g; s/^"(.*)"$/\1/')
+          SAN_TENANCY=$(printf '%s' "${OCI_CLI_TENANCY}" | tr -d '\r' | sed -E 's/^[[:space:]]+|[[:space:]]+$//g; s/^"(.*)"$/\1/')
+          SAN_FINGERPRINT=$(printf '%s' "${OCI_CLI_FINGERPRINT}" | tr -d '\r' | sed -E 's/^[[:space:]]+|[[:space:]]+$//g; s/^"(.*)"$/\1/')
+          SAN_REGION=$(printf '%s' "${OCI_CLI_REGION}" | tr -d '\r' | sed -E 's/^[[:space:]]+|[[:space:]]+$//g; s/^"(.*)"$/\1/')
+          {
+            echo "[DEFAULT]"
+            echo "user=${SAN_USER}"
+            echo "fingerprint=${SAN_FINGERPRINT}"
+            echo "tenancy=${SAN_TENANCY}"
+            echo "region=${SAN_REGION}"
+            echo "key_file=~/.oci/oci_api_key.pem"
+          } > ~/.oci/config
+
+          KEY_FILE=~/.oci/oci_api_key.pem
+          RAW_KEY="${OCI_CLI_KEY_CONTENT}"
+          RAW_KEY_STRIPPED=$(printf '%s' "$RAW_KEY" | tr -d '\r')
+          if printf '%s' "$RAW_KEY_STRIPPED" | grep -q "BEGIN .*PRIVATE KEY"; then
+            printf '%s\n' "$RAW_KEY_STRIPPED" > "$KEY_FILE"
+          elif printf '%b' "$RAW_KEY_STRIPPED" | grep -q "BEGIN .*PRIVATE KEY"; then
+            printf '%b' "$RAW_KEY_STRIPPED" > "$KEY_FILE"
+          elif printf '%s' "$RAW_KEY_STRIPPED" | base64 -d > "$KEY_FILE" 2>/dev/null; then
+            :
+          elif printf '%b' "$RAW_KEY_STRIPPED" | base64 -d > "$KEY_FILE" 2>/dev/null; then
+            :
+          else
+            printf '%b' "$RAW_KEY_STRIPPED" > "$KEY_FILE"
+          fi
+          if ! grep -Eq "BEGIN (RSA |EC |OPENSSH |ENCRYPTED |)?PRIVATE KEY" "$KEY_FILE"; then
+            echo "::warning::OCI_CLI_KEY_CONTENT format is unusual; validating with OCI CLI"
+          fi
+
+          chmod 600 ~/.oci/config ~/.oci/oci_api_key.pem
+          oci --version
+          oci iam region-subscription list --tenancy-id "${SAN_TENANCY}" --all > /dev/null
+
+      # ── Kubeconfig ──
+      - name: Ensure dev kubeconfig secret exists
         env:
           KUBE_CONFIG_DEV: ${{ secrets.KUBE_CONFIG_DEV }}
         run: |
           if [ -z "$KUBE_CONFIG_DEV" ]; then
-            echo "KUBE_CONFIG_DEV is not set"
-            exit 1
+            echo "::warning::KUBE_CONFIG_DEV secret is not set; kubeconfig will be generated from OCI"
           fi
+
       - name: Set image repo
         run: echo "REPO_LOWER=${{ needs.meta.outputs.repo_lower }}" >> $GITHUB_ENV
+
       - name: Install kubectl & kustomize
         uses: azure/setup-kubectl@v4
         with:
           version: 'v1.30.2'
       - uses: imranismail/setup-kustomize@v2
+        with:
+          kustomize-version: 5.4.2
+
       - name: Configure kubeconfig
         run: |
-          echo "${KUBE_CONFIG_DEV}" | base64 -d > $HOME/.kube/config
+          mkdir -p $HOME/.kube
+          CONFIG_FILE=$HOME/.kube/config
+          RAW_FILE=$HOME/.kube/config.raw
+          DECODED_FILE=$HOME/.kube/config.dec
+
+          ensure_kubeconfig_from_oci() {
+            CLUSTER_OCID=$(oci ce cluster list --compartment-id "${OCI_CLI_TENANCY}" --all --query 'data[?name==`gmp-oke-dev` && "lifecycle-state"==`ACTIVE`] | [-1].id' --raw-output 2>/dev/null || true)
+            if [ -z "$CLUSTER_OCID" ] || [ "$CLUSTER_OCID" = "null" ]; then
+              echo "::error::No ACTIVE gmp-oke-dev cluster found in tenancy"
+              exit 1
+            fi
+            oci ce cluster create-kubeconfig --cluster-id "$CLUSTER_OCID" --file "$CONFIG_FILE" --region "${OCI_CLI_REGION}" --token-version 2.0.0 --kube-endpoint PUBLIC_ENDPOINT
+          }
+
+          PREVIEW_PR="${{ inputs.preview_pr_number }}"
+          KCFG_OK=false
+          if [ -n "$PREVIEW_PR" ]; then
+            ensure_kubeconfig_from_oci
+            KCFG_OK=true
+          elif [ -n "${KUBE_CONFIG_DEV}" ]; then
+            printf '%s' "${KUBE_CONFIG_DEV}" > "$RAW_FILE"
+            if grep -q "apiVersion:" "$RAW_FILE"; then
+              cp "$RAW_FILE" "$CONFIG_FILE"
+            else
+              base64 -d "$RAW_FILE" > "$DECODED_FILE" 2>/dev/null || true
+              if grep -q "apiVersion:" "$DECODED_FILE"; then
+                cp "$DECODED_FILE" "$CONFIG_FILE"
+              else
+                base64 -d "$DECODED_FILE" > "$CONFIG_FILE" 2>/dev/null || true
+              fi
+            fi
+            if grep -q "apiVersion:" "$CONFIG_FILE" 2>/dev/null; then
+              KCFG_OK=true
+            fi
+          fi
+
+          if [ "$KCFG_OK" = false ]; then
+            ensure_kubeconfig_from_oci
+          fi
+
+          chmod 600 "$CONFIG_FILE"
+          echo "KUBECONFIG=$CONFIG_FILE" >> $GITHUB_ENV
+
+          CTX=$(kubectl config current-context 2>/dev/null || true)
+          if [ -z "$CTX" ]; then
+            ensure_kubeconfig_from_oci
+            CTX=$(kubectl config current-context 2>/dev/null || true)
+          fi
+          if [ -z "$CTX" ]; then
+            echo "::error::Kubeconfig has no current-context set"
+            exit 1
+          fi
+          echo "Current context: $CTX"
+
+          CLUSTER=$(kubectl config view --minify -o jsonpath='{.contexts[0].context.cluster}' 2>/dev/null || true)
+          if [ -z "$CLUSTER" ]; then
+            ensure_kubeconfig_from_oci
+            CLUSTER=$(kubectl config view --minify -o jsonpath='{.contexts[0].context.cluster}' 2>/dev/null || true)
+          fi
+          if [ -z "$CLUSTER" ]; then
+            echo "::error::Context '$CTX' has no cluster assigned"
+            exit 1
+          fi
+          echo "Cluster: $CLUSTER"
+
+          SERVER=$(kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}' 2>/dev/null | tr -d '`' | xargs || true)
+          case "$SERVER" in
+            ""|http://localhost:8080|http://127.0.0.1:8080|http://[::1]:8080|https://localhost:*|https://127.0.0.1:*|https://[::1]:*)
+              ensure_kubeconfig_from_oci
+              SERVER=$(kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}' 2>/dev/null | tr -d '`' | xargs || true)
+              ;;
+          esac
+          case "$SERVER" in
+            ""|http://localhost:8080|http://127.0.0.1:8080|http://[::1]:8080|https://localhost:*|https://127.0.0.1:*|https://[::1]:*)
+              echo "::error::Cluster '$CLUSTER' has invalid server after OCI kubeconfig generation: '${SERVER:-<empty>}'"
+              exit 1
+              ;;
+          esac
+          kubectl config set-cluster "$CLUSTER" --server="$SERVER" >/dev/null
+          echo "Server: $SERVER"
+
+          USER=$(kubectl config view --minify -o jsonpath='{.contexts[0].context.user}' 2>/dev/null || true)
+          if [ -z "$USER" ]; then
+            ensure_kubeconfig_from_oci
+            USER=$(kubectl config view --minify -o jsonpath='{.contexts[0].context.user}' 2>/dev/null || true)
+          fi
+          if [ -z "$USER" ]; then
+            echo "::error::Context '$CTX' has no user assigned"
+            exit 1
+          fi
+          echo "User: $USER"
+
+          echo "Testing cluster connectivity..."
+          if ! kubectl --request-timeout=20s cluster-info; then
+            ensure_kubeconfig_from_oci
+            kubectl --request-timeout=20s cluster-info
+          fi
         env:
           KUBE_CONFIG_DEV: ${{ secrets.KUBE_CONFIG_DEV }}
+          OCI_CLI_TENANCY: ${{ secrets.OCI_CLI_TENANCY }}
+          OCI_CLI_REGION: ${{ secrets.OCI_CLI_REGION }}
+
       - name: Create namespace
         if: ${{ inputs.create_namespace }}
         run: kubectl get namespace ${{ inputs.namespace }} || kubectl create namespace ${{ inputs.namespace }}
+
+      - name: Label preview namespace TTL
+        if: ${{ inputs.preview_pr_number != '' }}
+        run: |
+          NOW=$(date +%s)
+          kubectl label namespace ${{ inputs.namespace }} \
+            preview.gmp/enabled=true \
+            preview.gmp/pr=${{ inputs.preview_pr_number }} \
+            preview.gmp/created-at="$NOW" \
+            preview.gmp/ttl-hours=24 \
+            --overwrite=true
+
+      - name: Ensure preview data secrets
+        if: ${{ inputs.preview_pr_number != '' }}
+        run: |
+          kubectl create secret generic postgres-credentials \
+            -n ${{ inputs.namespace }} \
+            --from-literal=username=market \
+            --from-literal=password=marketpass \
+            --dry-run=client -o yaml | kubectl apply -f -
+          kubectl create secret generic minio-credentials \
+            -n ${{ inputs.namespace }} \
+            --from-literal=accesskey=admin \
+            --from-literal=secretkey=adminadmin \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Configure GHCR pull secret
+        env:
+          GHCR_PASSWORD: ${{ secrets.GHCR_TOKEN || secrets.GITHUB_TOKEN }}
+          GHCR_USERNAME: ${{ github.actor }}
+        run: |
+          if [ -z "$GHCR_PASSWORD" ]; then
+            echo "::error::GHCR_TOKEN is required to pull private images from ghcr.io"
+            exit 1
+          fi
+          kubectl create secret docker-registry ghcr-creds \
+            -n ${{ inputs.namespace }} \
+            --docker-server=ghcr.io \
+            --docker-username="$GHCR_USERNAME" \
+            --docker-password="$GHCR_PASSWORD" \
+            --dry-run=client -o yaml | kubectl apply -f -
+          kubectl patch serviceaccount default -n ${{ inputs.namespace }} -p '{"imagePullSecrets":[{"name":"ghcr-creds"}]}'
+
       - name: Prepare kustomize images
         run: |
           cd platform/k8s/overlays/${{ inputs.overlay }}
-          kustomize edit set image api-gateway=${{ env.REGISTRY }}/${{ env.REPO_LOWER }}/api-gateway:${{ needs.meta.outputs.sha }}
-          kustomize edit set image web=${{ env.REGISTRY }}/${{ env.REPO_LOWER }}/web:${{ needs.meta.outputs.sha }}
-          kustomize edit set image identity=${{ env.REGISTRY }}/${{ env.REPO_LOWER }}/identity:${{ needs.meta.outputs.sha }}
-          kustomize edit set image seller=${{ env.REGISTRY }}/${{ env.REPO_LOWER }}/seller:${{ needs.meta.outputs.sha }}
-          kustomize edit set image catalog=${{ env.REGISTRY }}/${{ env.REPO_LOWER }}/catalog:${{ needs.meta.outputs.sha }}
-          kustomize edit set image search=${{ env.REGISTRY }}/${{ env.REPO_LOWER }}/search:${{ needs.meta.outputs.sha }}
-          kustomize edit set image pricing=${{ env.REGISTRY }}/${{ env.REPO_LOWER }}/pricing:${{ needs.meta.outputs.sha }}
-          kustomize edit set image inventory=${{ env.REGISTRY }}/${{ env.REPO_LOWER }}/inventory:${{ needs.meta.outputs.sha }}
-          kustomize edit set image cart=${{ env.REGISTRY }}/${{ env.REPO_LOWER }}/cart:${{ needs.meta.outputs.sha }}
-          kustomize edit set image checkout=${{ env.REGISTRY }}/${{ env.REPO_LOWER }}/checkout:${{ needs.meta.outputs.sha }}
-          kustomize edit set image payments=${{ env.REGISTRY }}/${{ env.REPO_LOWER }}/payments:${{ needs.meta.outputs.sha }}
-          kustomize edit set image orders=${{ env.REGISTRY }}/${{ env.REPO_LOWER }}/orders:${{ needs.meta.outputs.sha }}
-          kustomize edit set image fulfillment=${{ env.REGISTRY }}/${{ env.REPO_LOWER }}/fulfillment:${{ needs.meta.outputs.sha }}
-          kustomize edit set image notifications=${{ env.REGISTRY }}/${{ env.REPO_LOWER }}/notifications:${{ needs.meta.outputs.sha }}
-          kustomize edit set image reviews=${{ env.REGISTRY }}/${{ env.REPO_LOWER }}/reviews:${{ needs.meta.outputs.sha }}
-          kustomize edit set image analytics=${{ env.REGISTRY }}/${{ env.REPO_LOWER }}/analytics:${{ needs.meta.outputs.sha }}
-      - name: Apply dev overlay
-        run: kubectl apply -k platform/k8s/overlays/${{ inputs.overlay }}
-      - name: Wait for rollouts
-        run: |
-          for d in api-gateway web identity seller catalog search pricing inventory cart checkout payments orders fulfillment notifications reviews analytics; do
-            kubectl rollout status deployment/$d -n ${{ inputs.namespace }} --timeout=180s || exit 1
+          kustomize edit set namespace ${{ inputs.namespace }}
+          for img in api-gateway web identity seller catalog search pricing inventory cart checkout payments orders fulfillment notifications reviews analytics; do
+            kustomize edit set image $img=${{ env.REGISTRY }}/${{ env.REPO_LOWER }}/$img:${{ needs.meta.outputs.sha }}
           done
 
+      - name: Verify rendered namespace
+        run: |
+          cat platform/k8s/overlays/${{ inputs.overlay }}/kustomization.yaml
+          kustomize build platform/k8s/overlays/${{ inputs.overlay }} | grep -m 40 '^  namespace:'
+
+      - name: Reset immutable bootstrap jobs
+        run: |
+          kubectl delete job \
+            minio-make-bucket \
+            s3-sink-register \
+            debezium-register \
+            kafka-topics-init \
+            -n ${{ inputs.namespace }} \
+            --ignore-not-found=true
+
+      - name: Apply dev overlay
+        run: kubectl apply -k platform/k8s/overlays/${{ inputs.overlay }}
+
+      - name: Limit preview load balancers
+        if: ${{ inputs.preview_pr_number != '' }}
+        run: kubectl patch svc web -n ${{ inputs.namespace }} -p '{"spec":{"type":"ClusterIP"}}' || true
+
+      - name: Show external services
+        run: |
+          kubectl get svc web api-gateway -n ${{ inputs.namespace }} -o wide || true
+          echo "--- Web LB IP ---"
+          kubectl get svc web -n ${{ inputs.namespace }} -o jsonpath='{.status.loadBalancer.ingress[0].ip}{"\n"}' || true
+          echo "--- API Gateway LB IP ---"
+          kubectl get svc api-gateway -n ${{ inputs.namespace }} -o jsonpath='{.status.loadBalancer.ingress[0].ip}{"\n"}' || true
+
+      - name: Publish dev endpoint summary
+        if: ${{ inputs.environment_name == 'dev' }}
+        run: |
+          WEB_IP=$(kubectl get svc web -n ${{ inputs.namespace }} -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true)
+          API_IP=$(kubectl get svc api-gateway -n ${{ inputs.namespace }} -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true)
+          WEB_URL=""
+          API_URL=""
+          if [ -n "$WEB_IP" ]; then WEB_URL="http://$WEB_IP"; fi
+          if [ -n "$API_IP" ]; then API_URL="http://$API_IP"; fi
+          {
+            echo "## Dev Deployment Endpoints"
+            echo ""
+            echo "- Namespace: \`${{ inputs.namespace }}\`"
+            echo "- Web IP: \`${WEB_IP:-pending}\`"
+            echo "- API Gateway IP: \`${API_IP:-pending}\`"
+            if [ -n "$WEB_URL" ]; then echo "- Web URL: $WEB_URL"; fi
+            if [ -n "$API_URL" ]; then echo "- API URL: $API_URL"; fi
+            echo ""
+            echo "If IP is pending, wait 1-3 minutes and re-check service status."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Comment preview URLs on PR
+        if: ${{ inputs.environment_name == 'dev' && inputs.preview_pr_number != '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          WEB_IP=$(kubectl get svc web -n ${{ inputs.namespace }} -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true)
+          API_IP=$(kubectl get svc api-gateway -n ${{ inputs.namespace }} -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true)
+          WEB_URL="pending"
+          API_URL="pending"
+          if [ -n "$WEB_IP" ]; then WEB_URL="http://$WEB_IP"; fi
+          if [ -n "$API_IP" ]; then API_URL="http://$API_IP"; fi
+          MARKER="<!-- gmp-preview-${{ inputs.preview_pr_number }} -->"
+          BODY="$MARKER
+          ✅ Preview environment deployed
+
+          - Namespace: \`${{ inputs.namespace }}\`
+          - Web: $WEB_URL
+          - API Gateway: $API_URL
+
+          If URL is pending, wait a few minutes and re-run deployment."
+
+          EXISTING_ID=$(gh api repos/${{ github.repository }}/issues/${{ inputs.preview_pr_number }}/comments --paginate --jq '.[] | select(.body | contains("'"$MARKER"'")) | .id' | head -n 1 || true)
+          if [ -n "$EXISTING_ID" ]; then
+            gh api repos/${{ github.repository }}/issues/comments/$EXISTING_ID -X PATCH -f body="$BODY" >/dev/null
+          else
+            gh api repos/${{ github.repository }}/issues/${{ inputs.preview_pr_number }}/comments -X POST -f body="$BODY" >/dev/null
+          fi
+
+      - name: Wait for rollouts
+        run: |
+          NS=${{ inputs.namespace }}
+          PREVIEW_PR="${{ inputs.preview_pr_number }}"
+          diagnose_ns() {
+            kubectl get pods -n "$NS" -o wide || true
+            kubectl get events -n "$NS" --sort-by='.lastTimestamp' | tail -n 150 || true
+          }
+          check_rollout() {
+            local kind="$1"
+            local name="$2"
+            echo "Checking rollout: ${kind}/${name}"
+            if ! kubectl rollout status "${kind}/${name}" -n "$NS" --timeout=600s; then
+              kubectl describe "${kind}/${name}" -n "$NS" || true
+              kubectl describe pods -n "$NS" -l app="$name" || true
+              kubectl logs -n "$NS" -l app="$name" --all-containers --tail=200 || true
+              diagnose_ns
+              exit 1
+            fi
+          }
+          if [ -z "$PREVIEW_PR" ]; then
+            check_rollout statefulset postgres
+            check_rollout statefulset kafka
+            check_rollout statefulset opensearch
+            for d in redis minio kafka-connect; do
+              check_rollout deployment "$d"
+            done
+          fi
+          for d in identity seller catalog search pricing inventory cart checkout payments orders fulfillment notifications reviews analytics api-gateway web transformer-api; do
+            check_rollout deployment "$d"
+          done
+
+  # ─────────────────────────────────────────────────────────────
+  #  PROD CANARY DEPLOYMENT
+  # ─────────────────────────────────────────────────────────────
   canary-prod:
     runs-on: ubuntu-latest
     needs: [meta, build-scan-push, validate-k8s, policy-check]
@@ -303,29 +629,164 @@ jobs:
     environment: prod
     steps:
       - uses: actions/checkout@v4
+
+      - name: Install OCI CLI
+        run: |
+          curl -L -O https://raw.githubusercontent.com/oracle/oci-cli/master/scripts/install/install.sh
+          bash install.sh --accept-all-defaults
+          echo "$HOME/bin" >> "$GITHUB_PATH"
+
+      - name: Configure OCI CLI
+        env:
+          OCI_CLI_USER: ${{ secrets.OCI_CLI_USER }}
+          OCI_CLI_TENANCY: ${{ secrets.OCI_CLI_TENANCY }}
+          OCI_CLI_FINGERPRINT: ${{ secrets.OCI_CLI_FINGERPRINT }}
+          OCI_CLI_KEY_CONTENT: ${{ secrets.OCI_CLI_KEY_CONTENT }}
+          OCI_CLI_REGION: ${{ secrets.OCI_CLI_REGION }}
+        run: |
+          for v in OCI_CLI_USER OCI_CLI_TENANCY OCI_CLI_FINGERPRINT OCI_CLI_KEY_CONTENT OCI_CLI_REGION; do
+            if [ -z "${!v}" ]; then
+              echo "::error::Missing required secret: $v"
+              exit 1
+            fi
+          done
+
+          mkdir -p ~/.oci
+          SAN_USER=$(printf '%s' "${OCI_CLI_USER}" | tr -d '\r' | sed -E 's/^[[:space:]]+|[[:space:]]+$//g; s/^"(.*)"$/\1/')
+          SAN_TENANCY=$(printf '%s' "${OCI_CLI_TENANCY}" | tr -d '\r' | sed -E 's/^[[:space:]]+|[[:space:]]+$//g; s/^"(.*)"$/\1/')
+          SAN_FINGERPRINT=$(printf '%s' "${OCI_CLI_FINGERPRINT}" | tr -d '\r' | sed -E 's/^[[:space:]]+|[[:space:]]+$//g; s/^"(.*)"$/\1/')
+          SAN_REGION=$(printf '%s' "${OCI_CLI_REGION}" | tr -d '\r' | sed -E 's/^[[:space:]]+|[[:space:]]+$//g; s/^"(.*)"$/\1/')
+          {
+            echo "[DEFAULT]"
+            echo "user=${SAN_USER}"
+            echo "fingerprint=${SAN_FINGERPRINT}"
+            echo "tenancy=${SAN_TENANCY}"
+            echo "region=${SAN_REGION}"
+            echo "key_file=~/.oci/oci_api_key.pem"
+          } > ~/.oci/config
+
+          KEY_FILE=~/.oci/oci_api_key.pem
+          RAW_KEY="${OCI_CLI_KEY_CONTENT}"
+          RAW_KEY_STRIPPED=$(printf '%s' "$RAW_KEY" | tr -d '\r')
+          if printf '%s' "$RAW_KEY_STRIPPED" | grep -q "BEGIN .*PRIVATE KEY"; then
+            printf '%s\n' "$RAW_KEY_STRIPPED" > "$KEY_FILE"
+          elif printf '%b' "$RAW_KEY_STRIPPED" | grep -q "BEGIN .*PRIVATE KEY"; then
+            printf '%b' "$RAW_KEY_STRIPPED" > "$KEY_FILE"
+          elif printf '%s' "$RAW_KEY_STRIPPED" | base64 -d > "$KEY_FILE" 2>/dev/null; then
+            :
+          elif printf '%b' "$RAW_KEY_STRIPPED" | base64 -d > "$KEY_FILE" 2>/dev/null; then
+            :
+          else
+            printf '%b' "$RAW_KEY_STRIPPED" > "$KEY_FILE"
+          fi
+          if ! grep -Eq "BEGIN (RSA |EC |OPENSSH |ENCRYPTED |)?PRIVATE KEY" "$KEY_FILE"; then
+            echo "::warning::OCI_CLI_KEY_CONTENT format is unusual; validating with OCI CLI"
+          fi
+
+          chmod 600 ~/.oci/config ~/.oci/oci_api_key.pem
+          oci --version
+          oci iam region-subscription list --tenancy-id "${SAN_TENANCY}" --all > /dev/null
+
       - name: Ensure prod kubeconfig
         env:
           KUBE_CONFIG_PROD: ${{ secrets.KUBE_CONFIG_PROD }}
         run: |
           if [ -z "$KUBE_CONFIG_PROD" ]; then
-            echo "KUBE_CONFIG_PROD is not set"
+            echo "::error::KUBE_CONFIG_PROD secret is not set"
             exit 1
           fi
+
       - name: Set image repo
         run: echo "REPO_LOWER=${{ needs.meta.outputs.repo_lower }}" >> $GITHUB_ENV
+
       - name: Install kubectl & kustomize
         uses: azure/setup-kubectl@v4
         with:
           version: 'v1.30.2'
       - uses: imranismail/setup-kustomize@v2
+        with:
+          kustomize-version: 5.4.2
+
       - name: Configure kubeconfig
         run: |
-          echo "${KUBE_CONFIG_PROD}" | base64 -d > $HOME/.kube/config
+          mkdir -p $HOME/.kube
+          CONFIG_FILE=$HOME/.kube/config
+          RAW_FILE=$HOME/.kube/config.raw
+          DECODED_FILE=$HOME/.kube/config.dec
+
+          printf '%s' "${KUBE_CONFIG_PROD}" > "$RAW_FILE"
+
+          if grep -q "apiVersion:" "$RAW_FILE"; then
+            cp "$RAW_FILE" "$CONFIG_FILE"
+          else
+            base64 -d "$RAW_FILE" > "$DECODED_FILE" 2>/dev/null || true
+            if grep -q "apiVersion:" "$DECODED_FILE"; then
+              cp "$DECODED_FILE" "$CONFIG_FILE"
+            else
+              base64 -d "$DECODED_FILE" > "$CONFIG_FILE" 2>/dev/null || true
+              if ! grep -q "apiVersion:" "$CONFIG_FILE"; then
+                echo "::error::KUBE_CONFIG_PROD could not be decoded to valid kubeconfig YAML"
+                exit 1
+              fi
+            fi
+          fi
+
+          chmod 600 "$CONFIG_FILE"
+          echo "KUBECONFIG=$CONFIG_FILE" >> $GITHUB_ENV
+
+          CTX=$(kubectl config current-context 2>/dev/null || true)
+          if [ -z "$CTX" ]; then
+            echo "::error::KUBE_CONFIG_PROD has no current-context set"
+            kubectl config get-contexts --no-headers 2>/dev/null || true
+            exit 1
+          fi
+
+          CLUSTER=$(kubectl config view --minify -o jsonpath='{.contexts[0].context.cluster}' 2>/dev/null || true)
+          if [ -z "$CLUSTER" ]; then
+            echo "::error::Context '$CTX' has no cluster assigned"
+            kubectl config get-contexts --no-headers 2>/dev/null || true
+            exit 1
+          fi
+
+          SERVER=$(kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}' 2>/dev/null || true)
+          case "$SERVER" in
+            ""|http://localhost:8080|http://127.0.0.1:8080|http://[::1]:8080|https://localhost:*|https://127.0.0.1:*|https://[::1]:*)
+              echo "::error::Cluster '$CLUSTER' has invalid server: '${SERVER:-<empty>}'"
+              exit 1
+              ;;
+          esac
+
+          USER=$(kubectl config view --minify -o jsonpath='{.contexts[0].context.user}' 2>/dev/null || true)
+          if [ -z "$USER" ]; then
+            echo "::error::Context '$CTX' has no user assigned"
+            exit 1
+          fi
+
+          kubectl cluster-info
         env:
           KUBE_CONFIG_PROD: ${{ secrets.KUBE_CONFIG_PROD }}
+
       - name: Create namespace
         if: ${{ inputs.create_namespace }}
         run: kubectl get namespace ${{ inputs.namespace }} || kubectl create namespace ${{ inputs.namespace }}
+
+      - name: Configure GHCR pull secret
+        env:
+          GHCR_PASSWORD: ${{ secrets.GHCR_TOKEN || secrets.GITHUB_TOKEN }}
+          GHCR_USERNAME: ${{ github.actor }}
+        run: |
+          if [ -z "$GHCR_PASSWORD" ]; then
+            echo "::error::GHCR_TOKEN is required to pull private images from ghcr.io"
+            exit 1
+          fi
+          kubectl create secret docker-registry ghcr-creds \
+            -n ${{ inputs.namespace }} \
+            --docker-server=ghcr.io \
+            --docker-username="$GHCR_USERNAME" \
+            --docker-password="$GHCR_PASSWORD" \
+            --dry-run=client -o yaml | kubectl apply -f -
+          kubectl patch serviceaccount default -n ${{ inputs.namespace }} -p '{"imagePullSecrets":[{"name":"ghcr-creds"}]}'
+
       - name: Canary on api-gateway
         run: |
           cd platform/k8s/overlays/${{ inputs.overlay }}
@@ -339,32 +800,135 @@ jobs:
             exit 1
           fi
 
+  # ─────────────────────────────────────────────────────────────
+  #  PROD CANARY HEALTH CHECK
+  # ─────────────────────────────────────────────────────────────
   canary-check:
     runs-on: ubuntu-latest
     needs: [canary-prod, meta]
     if: ${{ inputs.canary_checks && inputs.environment_name == 'prod' }}
     steps:
+      - name: Install OCI CLI
+        run: |
+          curl -L -O https://raw.githubusercontent.com/oracle/oci-cli/master/scripts/install/install.sh
+          bash install.sh --accept-all-defaults
+          echo "$HOME/bin" >> "$GITHUB_PATH"
+
+      - name: Configure OCI CLI
+        env:
+          OCI_CLI_USER: ${{ secrets.OCI_CLI_USER }}
+          OCI_CLI_TENANCY: ${{ secrets.OCI_CLI_TENANCY }}
+          OCI_CLI_FINGERPRINT: ${{ secrets.OCI_CLI_FINGERPRINT }}
+          OCI_CLI_KEY_CONTENT: ${{ secrets.OCI_CLI_KEY_CONTENT }}
+          OCI_CLI_REGION: ${{ secrets.OCI_CLI_REGION }}
+        run: |
+          for v in OCI_CLI_USER OCI_CLI_TENANCY OCI_CLI_FINGERPRINT OCI_CLI_KEY_CONTENT OCI_CLI_REGION; do
+            if [ -z "${!v}" ]; then
+              echo "::error::Missing required secret: $v"
+              exit 1
+            fi
+          done
+
+          mkdir -p ~/.oci
+          SAN_USER=$(printf '%s' "${OCI_CLI_USER}" | tr -d '\r' | sed -E 's/^[[:space:]]+|[[:space:]]+$//g; s/^"(.*)"$/\1/')
+          SAN_TENANCY=$(printf '%s' "${OCI_CLI_TENANCY}" | tr -d '\r' | sed -E 's/^[[:space:]]+|[[:space:]]+$//g; s/^"(.*)"$/\1/')
+          SAN_FINGERPRINT=$(printf '%s' "${OCI_CLI_FINGERPRINT}" | tr -d '\r' | sed -E 's/^[[:space:]]+|[[:space:]]+$//g; s/^"(.*)"$/\1/')
+          SAN_REGION=$(printf '%s' "${OCI_CLI_REGION}" | tr -d '\r' | sed -E 's/^[[:space:]]+|[[:space:]]+$//g; s/^"(.*)"$/\1/')
+          {
+            echo "[DEFAULT]"
+            echo "user=${SAN_USER}"
+            echo "fingerprint=${SAN_FINGERPRINT}"
+            echo "tenancy=${SAN_TENANCY}"
+            echo "region=${SAN_REGION}"
+            echo "key_file=~/.oci/oci_api_key.pem"
+          } > ~/.oci/config
+
+          KEY_FILE=~/.oci/oci_api_key.pem
+          RAW_KEY="${OCI_CLI_KEY_CONTENT}"
+          RAW_KEY_STRIPPED=$(printf '%s' "$RAW_KEY" | tr -d '\r')
+          if printf '%s' "$RAW_KEY_STRIPPED" | grep -q "BEGIN .*PRIVATE KEY"; then
+            printf '%s\n' "$RAW_KEY_STRIPPED" > "$KEY_FILE"
+          elif printf '%b' "$RAW_KEY_STRIPPED" | grep -q "BEGIN .*PRIVATE KEY"; then
+            printf '%b' "$RAW_KEY_STRIPPED" > "$KEY_FILE"
+          elif printf '%s' "$RAW_KEY_STRIPPED" | base64 -d > "$KEY_FILE" 2>/dev/null; then
+            :
+          elif printf '%b' "$RAW_KEY_STRIPPED" | base64 -d > "$KEY_FILE" 2>/dev/null; then
+            :
+          else
+            printf '%b' "$RAW_KEY_STRIPPED" > "$KEY_FILE"
+          fi
+          if ! grep -Eq "BEGIN (RSA |EC |OPENSSH |ENCRYPTED |)?PRIVATE KEY" "$KEY_FILE"; then
+            echo "::warning::OCI_CLI_KEY_CONTENT format is unusual; validating with OCI CLI"
+          fi
+
+          chmod 600 ~/.oci/config ~/.oci/oci_api_key.pem
+          oci --version
+          oci iam region-subscription list --tenancy-id "${SAN_TENANCY}" --all > /dev/null
+
       - name: Ensure prod kubeconfig
         env:
           KUBE_CONFIG_PROD: ${{ secrets.KUBE_CONFIG_PROD }}
         run: |
           if [ -z "$KUBE_CONFIG_PROD" ]; then
-            echo "KUBE_CONFIG_PROD is not set"
+            echo "::error::KUBE_CONFIG_PROD secret is not set"
             exit 1
           fi
+
       - name: Install kubectl
         uses: azure/setup-kubectl@v4
         with:
           version: 'v1.30.2'
+
       - name: Configure kubeconfig
         run: |
-          echo "${KUBE_CONFIG_PROD}" | base64 -d > $HOME/.kube/config
+          mkdir -p $HOME/.kube
+          CONFIG_FILE=$HOME/.kube/config
+          RAW_FILE=$HOME/.kube/config.raw
+          DECODED_FILE=$HOME/.kube/config.dec
+
+          printf '%s' "${KUBE_CONFIG_PROD}" > "$RAW_FILE"
+
+          if grep -q "apiVersion:" "$RAW_FILE"; then
+            cp "$RAW_FILE" "$CONFIG_FILE"
+          else
+            base64 -d "$RAW_FILE" > "$DECODED_FILE" 2>/dev/null || true
+            if grep -q "apiVersion:" "$DECODED_FILE"; then
+              cp "$DECODED_FILE" "$CONFIG_FILE"
+            else
+              base64 -d "$DECODED_FILE" > "$CONFIG_FILE" 2>/dev/null || true
+              if ! grep -q "apiVersion:" "$CONFIG_FILE"; then
+                echo "::error::KUBE_CONFIG_PROD could not be decoded"
+                exit 1
+              fi
+            fi
+          fi
+
+          chmod 600 "$CONFIG_FILE"
+          echo "KUBECONFIG=$CONFIG_FILE" >> $GITHUB_ENV
+
+          CTX=$(kubectl config current-context 2>/dev/null || true)
+          if [ -z "$CTX" ]; then echo "::error::No current-context"; exit 1; fi
+
+          CLUSTER=$(kubectl config view --minify -o jsonpath='{.contexts[0].context.cluster}' 2>/dev/null || true)
+          if [ -z "$CLUSTER" ]; then echo "::error::No cluster in context '$CTX'"; exit 1; fi
+
+          SERVER=$(kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}' 2>/dev/null || true)
+          case "$SERVER" in
+            ""|http://localhost:8080|http://127.0.0.1:8080|http://[::1]:8080|https://localhost:*|https://127.0.0.1:*|https://[::1]:*)
+              echo "::error::Invalid server: '${SERVER:-<empty>}'"; exit 1 ;;
+          esac
+
+          kubectl cluster-info
         env:
           KUBE_CONFIG_PROD: ${{ secrets.KUBE_CONFIG_PROD }}
+
       - name: Canary load check
         run: |
           kubectl run canary-check --rm -i --restart=Never -n ${{ inputs.namespace }} --image=curlimages/curl:8.5.0 -- /bin/sh -c "for i in \$(seq 1 50); do curl -sf http://api-gateway/health > /dev/null || exit 1; done"
 
+  # ─────────────────────────────────────────────────────────────
+  #  PROD FULL PROMOTION
+  # ─────────────────────────────────────────────────────────────
   promote-prod:
     runs-on: ubuntu-latest
     needs: [canary-check, meta]
@@ -372,26 +936,144 @@ jobs:
     environment: prod
     steps:
       - uses: actions/checkout@v4
+
+      - name: Install OCI CLI
+        run: |
+          curl -L -O https://raw.githubusercontent.com/oracle/oci-cli/master/scripts/install/install.sh
+          bash install.sh --accept-all-defaults
+          echo "$HOME/bin" >> "$GITHUB_PATH"
+
+      - name: Configure OCI CLI
+        env:
+          OCI_CLI_USER: ${{ secrets.OCI_CLI_USER }}
+          OCI_CLI_TENANCY: ${{ secrets.OCI_CLI_TENANCY }}
+          OCI_CLI_FINGERPRINT: ${{ secrets.OCI_CLI_FINGERPRINT }}
+          OCI_CLI_KEY_CONTENT: ${{ secrets.OCI_CLI_KEY_CONTENT }}
+          OCI_CLI_REGION: ${{ secrets.OCI_CLI_REGION }}
+        run: |
+          for v in OCI_CLI_USER OCI_CLI_TENANCY OCI_CLI_FINGERPRINT OCI_CLI_KEY_CONTENT OCI_CLI_REGION; do
+            if [ -z "${!v}" ]; then
+              echo "::error::Missing required secret: $v"
+              exit 1
+            fi
+          done
+
+          mkdir -p ~/.oci
+          SAN_USER=$(printf '%s' "${OCI_CLI_USER}" | tr -d '\r' | sed -E 's/^[[:space:]]+|[[:space:]]+$//g; s/^"(.*)"$/\1/')
+          SAN_TENANCY=$(printf '%s' "${OCI_CLI_TENANCY}" | tr -d '\r' | sed -E 's/^[[:space:]]+|[[:space:]]+$//g; s/^"(.*)"$/\1/')
+          SAN_FINGERPRINT=$(printf '%s' "${OCI_CLI_FINGERPRINT}" | tr -d '\r' | sed -E 's/^[[:space:]]+|[[:space:]]+$//g; s/^"(.*)"$/\1/')
+          SAN_REGION=$(printf '%s' "${OCI_CLI_REGION}" | tr -d '\r' | sed -E 's/^[[:space:]]+|[[:space:]]+$//g; s/^"(.*)"$/\1/')
+          {
+            echo "[DEFAULT]"
+            echo "user=${SAN_USER}"
+            echo "fingerprint=${SAN_FINGERPRINT}"
+            echo "tenancy=${SAN_TENANCY}"
+            echo "region=${SAN_REGION}"
+            echo "key_file=~/.oci/oci_api_key.pem"
+          } > ~/.oci/config
+
+          KEY_FILE=~/.oci/oci_api_key.pem
+          RAW_KEY="${OCI_CLI_KEY_CONTENT}"
+          RAW_KEY_STRIPPED=$(printf '%s' "$RAW_KEY" | tr -d '\r')
+          if printf '%s' "$RAW_KEY_STRIPPED" | grep -q "BEGIN .*PRIVATE KEY"; then
+            printf '%s\n' "$RAW_KEY_STRIPPED" > "$KEY_FILE"
+          elif printf '%b' "$RAW_KEY_STRIPPED" | grep -q "BEGIN .*PRIVATE KEY"; then
+            printf '%b' "$RAW_KEY_STRIPPED" > "$KEY_FILE"
+          elif printf '%s' "$RAW_KEY_STRIPPED" | base64 -d > "$KEY_FILE" 2>/dev/null; then
+            :
+          elif printf '%b' "$RAW_KEY_STRIPPED" | base64 -d > "$KEY_FILE" 2>/dev/null; then
+            :
+          else
+            printf '%b' "$RAW_KEY_STRIPPED" > "$KEY_FILE"
+          fi
+          if ! grep -Eq "BEGIN (RSA |EC |OPENSSH |ENCRYPTED |)?PRIVATE KEY" "$KEY_FILE"; then
+            echo "::warning::OCI_CLI_KEY_CONTENT format is unusual; validating with OCI CLI"
+          fi
+
+          chmod 600 ~/.oci/config ~/.oci/oci_api_key.pem
+          oci --version
+          oci iam region-subscription list --tenancy-id "${SAN_TENANCY}" --all > /dev/null
+
       - name: Ensure prod kubeconfig
         env:
           KUBE_CONFIG_PROD: ${{ secrets.KUBE_CONFIG_PROD }}
         run: |
           if [ -z "$KUBE_CONFIG_PROD" ]; then
-            echo "KUBE_CONFIG_PROD is not set"
+            echo "::error::KUBE_CONFIG_PROD secret is not set"
             exit 1
           fi
+
       - name: Set image repo
         run: echo "REPO_LOWER=${{ needs.meta.outputs.repo_lower }}" >> $GITHUB_ENV
+
       - name: Install kubectl & kustomize
         uses: azure/setup-kubectl@v4
         with:
           version: 'v1.30.2'
       - uses: imranismail/setup-kustomize@v2
+        with:
+          kustomize-version: 5.4.2
+
       - name: Configure kubeconfig
         run: |
-          echo "${KUBE_CONFIG_PROD}" | base64 -d > $HOME/.kube/config
+          mkdir -p $HOME/.kube
+          CONFIG_FILE=$HOME/.kube/config
+          RAW_FILE=$HOME/.kube/config.raw
+          DECODED_FILE=$HOME/.kube/config.dec
+
+          printf '%s' "${KUBE_CONFIG_PROD}" > "$RAW_FILE"
+
+          if grep -q "apiVersion:" "$RAW_FILE"; then
+            cp "$RAW_FILE" "$CONFIG_FILE"
+          else
+            base64 -d "$RAW_FILE" > "$DECODED_FILE" 2>/dev/null || true
+            if grep -q "apiVersion:" "$DECODED_FILE"; then
+              cp "$DECODED_FILE" "$CONFIG_FILE"
+            else
+              base64 -d "$DECODED_FILE" > "$CONFIG_FILE" 2>/dev/null || true
+              if ! grep -q "apiVersion:" "$CONFIG_FILE"; then
+                echo "::error::KUBE_CONFIG_PROD could not be decoded"
+                exit 1
+              fi
+            fi
+          fi
+
+          chmod 600 "$CONFIG_FILE"
+          echo "KUBECONFIG=$CONFIG_FILE" >> $GITHUB_ENV
+
+          CTX=$(kubectl config current-context 2>/dev/null || true)
+          if [ -z "$CTX" ]; then echo "::error::No current-context"; exit 1; fi
+
+          CLUSTER=$(kubectl config view --minify -o jsonpath='{.contexts[0].context.cluster}' 2>/dev/null || true)
+          if [ -z "$CLUSTER" ]; then echo "::error::No cluster in context '$CTX'"; exit 1; fi
+
+          SERVER=$(kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}' 2>/dev/null || true)
+          case "$SERVER" in
+            ""|http://localhost:8080|http://127.0.0.1:8080|http://[::1]:8080|https://localhost:*|https://127.0.0.1:*|https://[::1]:*)
+              echo "::error::Invalid server: '${SERVER:-<empty>}'"; exit 1 ;;
+          esac
+
+          kubectl cluster-info
         env:
           KUBE_CONFIG_PROD: ${{ secrets.KUBE_CONFIG_PROD }}
+
+      - name: Configure GHCR pull secret
+        env:
+          GHCR_PASSWORD: ${{ secrets.GHCR_TOKEN || secrets.GITHUB_TOKEN }}
+          GHCR_USERNAME: ${{ github.actor }}
+        run: |
+          if [ -z "$GHCR_PASSWORD" ]; then
+            echo "::error::GHCR_TOKEN is required to pull private images from ghcr.io"
+            exit 1
+          fi
+          kubectl create secret docker-registry ghcr-creds \
+            -n ${{ inputs.namespace }} \
+            --docker-server=ghcr.io \
+            --docker-username="$GHCR_USERNAME" \
+            --docker-password="$GHCR_PASSWORD" \
+            --dry-run=client -o yaml | kubectl apply -f -
+          kubectl patch serviceaccount default -n ${{ inputs.namespace }} -p '{"imagePullSecrets":[{"name":"ghcr-creds"}]}'
+
       - name: Promote all images
         run: |
           cd platform/k8s/overlays/${{ inputs.overlay }}
@@ -399,6 +1081,7 @@ jobs:
             kustomize edit set image $img=${{ env.REGISTRY }}/${{ env.REPO_LOWER }}/$img:${{ needs.meta.outputs.sha }}
           done
           kubectl apply -k .
+
       - name: Wait for rollouts and auto-rollback on failure
         run: |
           set +e

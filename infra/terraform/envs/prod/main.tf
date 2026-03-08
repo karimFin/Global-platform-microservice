@@ -38,12 +38,14 @@ module "autonomous_db" {
 }
 
 module "oke" {
-  source             = "../../modules/oke"
-  compartment_ocid   = var.compartment_ocid
-  name               = "gmp-oke-prod"
-  vcn_id             = module.network.vcn_id
-  subnet_ids         = [module.network.public_subnet_id]
-  availability_domain = data.oci_identity_availability_domains.ads.availability_domains[0].name
-  kubernetes_version = "v1.29.1"
-  node_pool_size     = var.oke_node_pool_size
+  source                = "../../modules/oke"
+  compartment_ocid      = var.compartment_ocid
+  name                  = "gmp-oke-prod"
+  vcn_id                = module.network.vcn_id
+  endpoint_subnet_id    = module.network.public_subnet_id
+  service_lb_subnet_ids = [module.network.public_subnet_id]
+  node_subnet_id        = module.network.private_subnet_id
+  availability_domain   = data.oci_identity_availability_domains.ads.availability_domains[0].name
+  kubernetes_version    = "v1.29.1"
+  node_pool_size        = var.oke_node_pool_size
 }
