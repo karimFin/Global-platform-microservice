@@ -523,22 +523,31 @@ jobs:
       - name: Publish dev endpoint summary
         if: ${{ inputs.environment_name == 'dev' }}
         run: |
+          WEB_TYPE=$(kubectl get svc web -n ${{ inputs.namespace }} -o jsonpath='{.spec.type}' 2>/dev/null || true)
+          API_TYPE=$(kubectl get svc api-gateway -n ${{ inputs.namespace }} -o jsonpath='{.spec.type}' 2>/dev/null || true)
           WEB_IP=$(kubectl get svc web -n ${{ inputs.namespace }} -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true)
           API_IP=$(kubectl get svc api-gateway -n ${{ inputs.namespace }} -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true)
-          WEB_URL=""
-          API_URL=""
+          WEB_URL="pending"
+          API_URL="pending"
+          if [ "$WEB_TYPE" = "ClusterIP" ]; then WEB_URL="internal-only (ClusterIP)"; fi
+          if [ "$API_TYPE" = "ClusterIP" ]; then API_URL="internal-only (ClusterIP)"; fi
           if [ -n "$WEB_IP" ]; then WEB_URL="http://$WEB_IP"; fi
           if [ -n "$API_IP" ]; then API_URL="http://$API_IP"; fi
           {
             echo "## Dev Deployment Endpoints"
             echo ""
             echo "- Namespace: \`${{ inputs.namespace }}\`"
+            echo "- Web service type: \`${WEB_TYPE:-unknown}\`"
+            echo "- API Gateway service type: \`${API_TYPE:-unknown}\`"
             echo "- Web IP: \`${WEB_IP:-pending}\`"
             echo "- API Gateway IP: \`${API_IP:-pending}\`"
-            if [ -n "$WEB_URL" ]; then echo "- Web URL: $WEB_URL"; fi
-            if [ -n "$API_URL" ]; then echo "- API URL: $API_URL"; fi
+            echo "- Web URL: $WEB_URL"
+            echo "- API URL: $API_URL"
+            if [ "$WEB_TYPE" = "ClusterIP" ]; then
+              echo "- Web access: \`kubectl -n ${{ inputs.namespace }} port-forward svc/web 8080:80\` then open http://localhost:8080"
+            fi
             echo ""
-            echo "If IP is pending, wait 1-3 minutes and re-check service status."
+            echo "If LoadBalancer IP is pending, wait 1-3 minutes and re-check service status."
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Comment preview URLs on PR
@@ -546,10 +555,14 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          WEB_TYPE=$(kubectl get svc web -n ${{ inputs.namespace }} -o jsonpath='{.spec.type}' 2>/dev/null || true)
+          API_TYPE=$(kubectl get svc api-gateway -n ${{ inputs.namespace }} -o jsonpath='{.spec.type}' 2>/dev/null || true)
           WEB_IP=$(kubectl get svc web -n ${{ inputs.namespace }} -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true)
           API_IP=$(kubectl get svc api-gateway -n ${{ inputs.namespace }} -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true)
           WEB_URL="pending"
           API_URL="pending"
+          if [ "$WEB_TYPE" = "ClusterIP" ]; then WEB_URL="internal-only (ClusterIP)"; fi
+          if [ "$API_TYPE" = "ClusterIP" ]; then API_URL="internal-only (ClusterIP)"; fi
           if [ -n "$WEB_IP" ]; then WEB_URL="http://$WEB_IP"; fi
           if [ -n "$API_IP" ]; then API_URL="http://$API_IP"; fi
           MARKER="<!-- gmp-preview-${{ inputs.preview_pr_number }} -->"
@@ -557,10 +570,13 @@ jobs:
           ✅ Preview environment deployed
 
           - Namespace: \`${{ inputs.namespace }}\`
+          - Web service type: \`${WEB_TYPE:-unknown}\`
+          - API Gateway service type: \`${API_TYPE:-unknown}\`
           - Web: $WEB_URL
           - API Gateway: $API_URL
 
-          If URL is pending, wait a few minutes and re-run deployment."
+          If a service type is ClusterIP, external URL is intentionally unavailable.
+          For internal preview access, use: \`kubectl -n ${{ inputs.namespace }} port-forward svc/web 8080:80\`."
 
           EXISTING_ID=$(gh api repos/${{ github.repository }}/issues/${{ inputs.preview_pr_number }}/comments --paginate --jq '.[] | select(.body | contains("'"$MARKER"'")) | .id' | head -n 1 || true)
           if [ -n "$EXISTING_ID" ]; then
