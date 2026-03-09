@@ -1,6 +1,9 @@
 name: Publish GHCR Package
 
 on:
+  push:
+    tags:
+      - "v*"
   workflow_dispatch:
     inputs:
       image_name:
@@ -28,8 +31,18 @@ jobs:
         id: meta
         run: |
           OWNER_LOWER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
-          IMAGE="ghcr.io/${OWNER_LOWER}/${{ inputs.image_name }}"
+          IMAGE_NAME="gpm-frontend"
+          IMAGE_TAG="latest"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            IMAGE_NAME="${{ inputs.image_name }}"
+            IMAGE_TAG="${{ inputs.image_tag }}"
+          fi
+          if [ "${{ github.event_name }}" = "push" ]; then
+            IMAGE_TAG="${{ github.ref_name }}"
+          fi
+          IMAGE="ghcr.io/${OWNER_LOWER}/${IMAGE_NAME}"
           echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
+          echo "image_tag=$IMAGE_TAG" >> "$GITHUB_OUTPUT"
 
       - name: Login to GHCR
         uses: docker/login-action@v3
@@ -40,12 +53,12 @@ jobs:
 
       - name: Build image
         run: |
-          docker build -f frontend/Dockerfile -t ${{ steps.meta.outputs.image }}:${{ inputs.image_tag }} frontend
-          docker tag ${{ steps.meta.outputs.image }}:${{ inputs.image_tag }} ${{ steps.meta.outputs.image }}:${{ github.sha }}
+          docker build -f frontend/Dockerfile -t ${{ steps.meta.outputs.image }}:${{ steps.meta.outputs.image_tag }} frontend
+          docker tag ${{ steps.meta.outputs.image }}:${{ steps.meta.outputs.image_tag }} ${{ steps.meta.outputs.image }}:${{ github.sha }}
 
       - name: Push image tags
         run: |
-          docker push ${{ steps.meta.outputs.image }}:${{ inputs.image_tag }}
+          docker push ${{ steps.meta.outputs.image }}:${{ steps.meta.outputs.image_tag }}
           docker push ${{ steps.meta.outputs.image }}:${{ github.sha }}
 
       - name: Publish summary
@@ -54,7 +67,7 @@ jobs:
             echo "## GHCR Package Published"
             echo ""
             echo "- Package: \`${{ steps.meta.outputs.image }}\`"
-            echo "- Tag: \`${{ inputs.image_tag }}\`"
+            echo "- Tag: \`${{ steps.meta.outputs.image_tag }}\`"
             echo "- Commit tag: \`${{ github.sha }}\`"
             echo ""
             echo "Open: https://github.com/${{ github.repository }}/packages"
