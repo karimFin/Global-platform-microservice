@@ -24,18 +24,39 @@ GPM is a production‑oriented system built as a suite of microservices. It comb
 - Kubernetes manifests live in `platform/k8s` with Kustomize overlays for dev and prod.
 - GitHub Actions handles CI and deployment workflows.
 
-## Request Flow (Example)
-1. Client to API Gateway
-2. API Gateway to Domain service
-3. Service to Postgres/Redis/OpenSearch
-4. Data changes to Debezium to Kafka topics
-5. Kafka Connect to MinIO (JSONL event archives)
+## 4) Request lifecycle (runtime path)
+
+1. Browser/web calls API Gateway endpoint.
+2. API Gateway forwards request to target domain service.
+3. Service reads/writes operational data stores.
+4. State changes produce CDC records (Debezium).
+5. Events stream through Kafka topics.
+6. Connect sinks selected topics into MinIO for archive/analytics.
+
 
 ## Kubernetes
 **Prereqs**
 - Secrets:
   - `postgres-credentials` with `username`, `password`
   - `minio-credentials` with `accesskey`, `secretkey`
+ 
+  ## 5) Kubernetes model
+
+`platform/k8s/base` includes:
+- namespace + core infrastructure workloads
+- all service deployments and services
+- bootstrap jobs for topics/connectors/buckets
+- configmaps for connector definitions
+
+Environment overlays:
+- `platform/k8s/overlays/dev`
+- `platform/k8s/overlays/prod`
+
+Overlay duties:
+- namespace targeting
+- image tag pinning
+- replica and environment-specific tuning
+- service exposure policy
 
 **Apply base**
 ```
@@ -46,6 +67,20 @@ kubectl apply -k platform/k8s/base
 - Dev: `kubectl apply -k platform/k8s/overlays/dev`
 - Prod: `kubectl apply -k platform/k8s/overlays/prod`
 - Preview: `kubectl apply -k platform/k8s/overlays/preview`
+
+
+### Streaming + CDC
+
+- **Kafka (KRaft)**: event backbone.
+- **Debezium connector**: captures Postgres changes and emits CDC streams.
+- **Kafka Connect**: consumes stream topics and syncs to object storage.
+- **MinIO**: S3-compatible sink for event archive and lake-style export.
+
+### Why this split works
+- transactional workloads stay isolated in Postgres.
+- search and cache concerns move out of critical write path.
+- async event propagation decouples downstream consumers.
+
 
 **Bootstrap Jobs**
 - `kafka-topics-init` creates core topics.
@@ -70,7 +105,19 @@ kubectl apply -k platform/k8s/base
 - Rollback: `kubectl rollout undo deployment/<name> -n <namespace>`
 - IaC adoption plan: `docs/IAC_ADOPTION_PLAN.md`
 
-## OCI Dev Automation
+## Infrastructure model (OCI + Terraform)
+
+Terraform module stack provisions:
+- VCN and required subnets
+- OKE cluster
+- OKE node pool sizing/shape/image
+- LB subnet mapping
+
+Operational behavior:
+- CI deploy workflows target OKE via kubeconfig + OCI fallback generation.
+- namespace-scoped preview environments are created per PR.
+- stale preview namespaces are auto-cleaned by TTL schedule.
+
 Use one command entrypoints for learning lifecycle:
 - `make ship-dev` - Push current branch to `dev` (auto-triggers `Deploy Dev`)
 - `make infra-apply-ci` - Run Terraform apply in GitHub Actions (`Infra Dev`)
