@@ -24,7 +24,7 @@ GPM is a production‑oriented system built as a suite of microservices. It comb
 - Kubernetes manifests live in `platform/k8s` with Kustomize overlays for dev and prod.
 - GitHub Actions handles CI and deployment workflows.
 
-## 4) Request lifecycle (runtime path)
+##Request lifecycle (runtime path)
 
 1. Browser/web calls API Gateway endpoint.
 2. API Gateway forwards request to target domain service.
@@ -40,7 +40,7 @@ GPM is a production‑oriented system built as a suite of microservices. It comb
   - `postgres-credentials` with `username`, `password`
   - `minio-credentials` with `accesskey`, `secretkey`
  
-  ## 5) Kubernetes model
+## Kubernetes model
 
 `platform/k8s/base` includes:
 - namespace + core infrastructure workloads
