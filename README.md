@@ -72,17 +72,17 @@ kubectl apply -k platform/k8s/base
 
 ## OCI Dev Automation
 Use one command entrypoints for learning lifecycle:
-- `make ship-dev` → Push current branch to `dev` (auto-triggers `Deploy Dev`)
-- `make infra-apply-ci` → Run Terraform apply in GitHub Actions (`Infra Dev`)
-- `make infra-destroy-ci` → Run Terraform destroy in GitHub Actions (`Infra Dev`)
-- `make infra-cleanup-ci` → Force cleanup in OCI when Terraform state drift happened (`Infra Dev Cleanup`)
-- `make infra-plan` → Terraform plan for `infra/terraform/envs/dev`
-- `make infra-apply` → Create/update dev OCI infrastructure
-- `make infra-destroy` → Destroy dev OCI infrastructure
+- `make ship-dev` - Push current branch to `dev` (auto-triggers `Deploy Dev`)
+- `make infra-apply-ci` - Run Terraform apply in GitHub Actions (`Infra Dev`)
+- `make infra-destroy-ci` - Run Terraform destroy in GitHub Actions (`Infra Dev`)
+- `make infra-cleanup-ci` - Force cleanup in OCI when Terraform state drift happened (`Infra Dev Cleanup`)
+- `make infra-plan` - Terraform plan for `infra/terraform/envs/dev`
+- `make infra-apply` - Create/update dev OCI infrastructure
+- `make infra-destroy` - Destroy dev OCI infrastructure
 - `make up-dev` → Apply infra + generate kubeconfig + update `KUBE_CONFIG_DEV` + trigger `Deploy Dev`
-- `make infra-status` → Show Terraform state and active OCI cluster/LB
-- `make gh-iac-plan` → Plan GitHub labels/branch protection/environments as Terraform
-- `make gh-iac-apply` → Apply GitHub governance IaC
+- `make infra-status` - Show Terraform state and active OCI cluster/LB
+- `make gh-iac-plan` - Plan GitHub labels/branch protection/environments as Terraform
+- `make gh-iac-apply` - Apply GitHub governance IaC
 
 Required for remote backend locking:
 - `TF_CLOUD_ORGANIZATION` (local shell env)
