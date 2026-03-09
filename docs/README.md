@@ -2,6 +2,7 @@
 
 ## Core architecture
 - `ARCHITECTURE_DEEP_DIVE.md`: full runtime/data/event/deploy architecture breakdown
+- `TEAM_AND_CREDITS.md`: maintainer credits and open contributor roles
 - `assets/global-marketplace-architecture.gif`: animated architecture walkthrough
 
 ## SRE and observability
@@ -78,4 +79,4 @@ make gh-iac-destroy
 | Preview IaC overlay | Declarative preview environment behavior | Platform/DevOps | `kubectl apply -k platform/k8s/overlays/preview` |
 | GitHub governance IaC | Labels, protections, environments as code | Platform/DevOps | `make gh-iac-apply` |
 | Secret governance + rotation | Policy metadata + controlled secret rotation | Platform/Security | `gh workflow run rotate-environment-secret.yml` |
-| GitHub Packages publish | Manual GHCR package publishing workflow | Platform/Release | `gh workflow run publish-ghcr-package.yml` |
+| GitHub Packages publish | Manual and tag-based GHCR publishing | Platform/Release | `gh workflow run publish-ghcr-package.yml` |

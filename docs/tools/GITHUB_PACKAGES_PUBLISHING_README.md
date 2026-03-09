@@ -3,7 +3,7 @@
 ## Why this was implemented
 
 The repository had no visible package in GitHub Packages.
-To make package publishing simple and repeatable, we added a manual workflow that publishes a container package to GHCR.
+To make package publishing simple and repeatable, we added both manual and automatic tag-triggered publishing to GHCR.
 
 ## What gets published
 
@@ -16,7 +16,9 @@ To make package publishing simple and repeatable, we added a manual workflow tha
 
 - `.github/workflows/publish-ghcr-package.yml`
 
-It can be run manually from the Actions tab.
+It supports:
+- manual run from Actions tab
+- automatic publish on git tag push matching `v*`
 
 ## How to use
 
@@ -27,6 +29,20 @@ It can be run manually from the Actions tab.
    - `image_tag` (default `latest`)
 4. After success, check:
    - `https://github.com/<owner>/<repo>/packages`
+
+## Automatic publish from version tags
+
+Push a version tag:
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+Automatic behavior:
+- workflow runs on tag push
+- image tag becomes the git tag (`v0.1.0`)
+- package defaults to `ghcr.io/<owner>/gpm-frontend`
 
 ## Why this is useful in this project
 
