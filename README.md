@@ -25,11 +25,11 @@ GPM is a production‑oriented system built as a suite of microservices. It comb
 - GitHub Actions handles CI and deployment workflows.
 
 ## Request Flow (Example)
-1. Client → API Gateway
-2. API Gateway → Domain service
-3. Service → Postgres/Redis/OpenSearch
-4. Data changes → Debezium → Kafka topics
-5. Kafka Connect → MinIO (JSONL event archives)
+1. Client to API Gateway
+2. API Gateway to Domain service
+3. Service to Postgres/Redis/OpenSearch
+4. Data changes to Debezium to Kafka topics
+5. Kafka Connect to MinIO (JSONL event archives)
 
 ## Kubernetes
 **Prereqs**
