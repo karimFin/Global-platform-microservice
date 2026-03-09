@@ -2,6 +2,7 @@
 
 ## Core architecture
 - `ARCHITECTURE_DEEP_DIVE.md`: full runtime/data/event/deploy architecture breakdown
+- `TEAM_AND_CREDITS.md`: maintainer credits and open contributor roles
 - `assets/global-marketplace-architecture.gif`: animated architecture walkthrough
 
 ## SRE and observability
