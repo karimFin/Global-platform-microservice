@@ -1,4 +1,4 @@
-# Platform SRE Blueprint (FAANG-Style)
+# Platform SRE Blueprint
 
 ## 1) SRE mission and operating model
 
