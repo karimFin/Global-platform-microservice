@@ -1,0 +1,61 @@
+name: Publish GHCR Package
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_name:
+        description: "Container package name"
+        required: true
+        default: "gpm-frontend"
+        type: string
+      image_tag:
+        description: "Tag to publish"
+        required: true
+        default: "latest"
+        type: string
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set image coordinates
+        id: meta
+        run: |
+          OWNER_LOWER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          IMAGE="ghcr.io/${OWNER_LOWER}/${{ inputs.image_name }}"
+          echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build image
+        run: |
+          docker build -f frontend/Dockerfile -t ${{ steps.meta.outputs.image }}:${{ inputs.image_tag }} frontend
+          docker tag ${{ steps.meta.outputs.image }}:${{ inputs.image_tag }} ${{ steps.meta.outputs.image }}:${{ github.sha }}
+
+      - name: Push image tags
+        run: |
+          docker push ${{ steps.meta.outputs.image }}:${{ inputs.image_tag }}
+          docker push ${{ steps.meta.outputs.image }}:${{ github.sha }}
+
+      - name: Publish summary
+        run: |
+          {
+            echo "## GHCR Package Published"
+            echo ""
+            echo "- Package: \`${{ steps.meta.outputs.image }}\`"
+            echo "- Tag: \`${{ inputs.image_tag }}\`"
+            echo "- Commit tag: \`${{ github.sha }}\`"
+            echo ""
+            echo "Open: https://github.com/${{ github.repository }}/packages"
+          } >> "$GITHUB_STEP_SUMMARY"
