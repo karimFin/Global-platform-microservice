@@ -27,7 +27,6 @@ Architecture visual:
 ## Quick start
 
 Prerequisites:
-- Node.js and npm
 - Docker
 - kubectl and kustomize
 - Terraform (for infra and governance flows)
