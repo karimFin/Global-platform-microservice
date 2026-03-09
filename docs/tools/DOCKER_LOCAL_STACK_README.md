@@ -3,7 +3,7 @@
 ## Why we implemented Docker for local development
 
 Developers need a fast way to run the platform without full cloud setup.
-Docker Compose gives a single local runtime for service integration testing.
+Docker Compose gives a single local runtime for service integration testing..
 
 ## How it works here
 
