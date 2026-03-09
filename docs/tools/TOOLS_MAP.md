@@ -33,6 +33,8 @@ This page gives a quick navigation flow for the project tools and platform build
 
 - GitHub governance IaC: `GITHUB_GOVERNANCE_IAC_README.md`
 - Secrets governance and rotation: `SECRETS_GOVERNANCE_ROTATION_README.md`
+- GitHub package publishing: `GITHUB_PACKAGES_PUBLISHING_README.md`
+- Contributor showcase template: `CONTRIBUTOR_SHOWCASE_TEMPLATE_README.md`
 - Secrets governance deep-dive: `../GITHUB_SECRETS_GOVERNANCE.md`
 
 ## 7) Architecture references

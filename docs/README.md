@@ -61,6 +61,8 @@ make gh-iac-destroy
 - `tools/MINIO_OBJECT_STORAGE_README.md`
 - `tools/PROJECT_STRUCTURE_README.md`
 - `tools/TOOLS_MAP.md`
+- `tools/GITHUB_PACKAGES_PUBLISHING_README.md`
+- `tools/CONTRIBUTOR_SHOWCASE_TEMPLATE_README.md`
 
 ## Tool matrix
 | Tool | Purpose | Owner | Operational command |
@@ -76,3 +78,4 @@ make gh-iac-destroy
 | Preview IaC overlay | Declarative preview environment behavior | Platform/DevOps | `kubectl apply -k platform/k8s/overlays/preview` |
 | GitHub governance IaC | Labels, protections, environments as code | Platform/DevOps | `make gh-iac-apply` |
 | Secret governance + rotation | Policy metadata + controlled secret rotation | Platform/Security | `gh workflow run rotate-environment-secret.yml` |
+| GitHub Packages publish | Manual GHCR package publishing workflow | Platform/Release | `gh workflow run publish-ghcr-package.yml` |
