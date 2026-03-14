@@ -66,6 +66,7 @@ make gh-iac-destroy
 - `tools/TOOLS_MAP.md`
 - `tools/GITHUB_PACKAGES_PUBLISHING_README.md`
 - `tools/CONTRIBUTOR_SHOWCASE_TEMPLATE_README.md`
+- `tools/TECHNOLOGY_STACK_BASICS_README.md`
 
 ## Tool matrix
 | Tool | Purpose | Owner | Operational command |
