@@ -71,6 +71,19 @@ GitHub governance as Terraform:
 - `deploy-dev.yml` and `deploy-prod.yml`: environment deployments
 - `publish-ghcr-package.yml`: manual and `v*` tag-based package publishing
 
+## Reliability gate checks
+
+Local SLO burn-rate gate commands:
+
+```bash
+export PROMETHEUS_URL=https://prometheus.example.com
+make slo-gate-check
+make slo-gate-check-prod
+```
+
+Full command reference:
+- `docs/tools/SLO_GATE_LOCAL_CLI_README.md`
+
 ## Packages
 
 GitHub Packages uses GHCR container packages.
