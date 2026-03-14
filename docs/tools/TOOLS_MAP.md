@@ -6,6 +6,7 @@ This page gives a quick navigation flow for the project tools and platform build
 
 - Docker local stack: `DOCKER_LOCAL_STACK_README.md`
 - Project structure overview: `PROJECT_STRUCTURE_README.md`
+- Technology stack basics: `TECHNOLOGY_STACK_BASICS_README.md`
 
 ## 2) Runtime orchestration
 
