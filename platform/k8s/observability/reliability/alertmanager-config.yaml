@@ -1,0 +1,32 @@
+apiVersion: monitoring.coreos.com/v1alpha1
+kind: AlertmanagerConfig
+metadata:
+  name: gmp-alert-routing
+  namespace: observability
+  labels:
+    alertmanagerConfig: enabled
+spec:
+  route:
+    receiver: gmp-default
+    groupBy:
+      - alertname
+      - severity
+      - slo_tier
+    groupWait: 30s
+    groupInterval: 5m
+    repeatInterval: 2h
+    routes:
+      - receiver: gmp-platform-sre
+        matchers:
+          - name: severity
+            value: page
+            matchType: "="
+      - receiver: gmp-reliability-ticket
+        matchers:
+          - name: severity
+            value: ticket
+            matchType: "="
+  receivers:
+    - name: gmp-default
+    - name: gmp-platform-sre
+    - name: gmp-reliability-ticket

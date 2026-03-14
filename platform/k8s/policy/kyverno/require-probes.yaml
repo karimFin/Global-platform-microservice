@@ -1,0 +1,27 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: gmp-require-probes
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+    - name: require-liveness-and-readiness
+      match:
+        any:
+          - resources:
+              kinds:
+                - Deployment
+      validate:
+        message: "All containers must define livenessProbe and readinessProbe"
+        foreach:
+          - list: "request.object.spec.template.spec.containers"
+            deny:
+              conditions:
+                any:
+                  - key: "{{ element.livenessProbe || '' }}"
+                    operator: Equals
+                    value: ""
+                  - key: "{{ element.readinessProbe || '' }}"
+                    operator: Equals
+                    value: ""

@@ -1,0 +1,39 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: gmp-slo-burn-rate-rules
+  namespace: observability
+  labels:
+    app.kubernetes.io/name: gmp-reliability
+spec:
+  groups:
+    - name: gmp.slo.burnrate
+      rules:
+        - alert: GmpTier0FastBurnRate
+          expr: |
+            (
+              sum(rate(http_requests_total{service=~"api-gateway|checkout|payments|orders",status_code=~"5.."}[5m]))
+              /
+              sum(rate(http_requests_total{service=~"api-gateway|checkout|payments|orders"}[5m]))
+            ) > (14.4 * 0.0005)
+          for: 5m
+          labels:
+            severity: page
+            slo_tier: tier0
+          annotations:
+            summary: "Tier0 fast burn-rate SLO violation"
+            description: "Tier0 5xx error-rate burn is above fast threshold."
+        - alert: GmpTier0SlowBurnRate
+          expr: |
+            (
+              sum(rate(http_requests_total{service=~"api-gateway|checkout|payments|orders",status_code=~"5.."}[1h]))
+              /
+              sum(rate(http_requests_total{service=~"api-gateway|checkout|payments|orders"}[1h]))
+            ) > (6 * 0.0005)
+          for: 30m
+          labels:
+            severity: ticket
+            slo_tier: tier0
+          annotations:
+            summary: "Tier0 slow burn-rate SLO violation"
+            description: "Tier0 5xx error-rate burn is above slow threshold."

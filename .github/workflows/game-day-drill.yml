@@ -1,0 +1,36 @@
+name: Game Day Drill
+
+on:
+  workflow_dispatch:
+    inputs:
+      scenario:
+        description: "Game day scenario identifier"
+        required: true
+        default: "checkout-latency-spike"
+        type: string
+  schedule:
+    - cron: "0 9 1 * *"
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  open-drill-issue:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create game day issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          DATE_UTC=$(date -u +%F)
+          SCENARIO="${{ github.event.inputs.scenario }}"
+          if [ -z "$SCENARIO" ]; then
+            SCENARIO="scheduled-monthly-drill"
+          fi
+          BODY=$(printf '## Game Day Drill\n\n- Scenario: `%s`\n- Date: `%s`\n\n### Drill checklist\n- [ ] Assign Incident Commander\n- [ ] Execute fault scenario\n- [ ] Validate alert firing and routing\n- [ ] Validate runbook usage\n- [ ] Capture MTTD and MTTR\n- [ ] Log remediation actions\n\n### Outcome\n- [ ] RCA created\n- [ ] Follow-up tasks filed\n' "$SCENARIO" "$DATE_UTC")
+          gh issue create \
+            --repo "${{ github.repository }}" \
+            --title "Game Day Drill ${DATE_UTC} - ${SCENARIO}" \
+            --label "reliability" \
+            --body "$BODY"

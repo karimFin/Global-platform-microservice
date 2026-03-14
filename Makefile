@@ -78,6 +78,11 @@ up-dev:
 	bash scripts/devctl.sh up
 
 KUBECONFIG_DEV_FILE ?= /tmp/kubeconfig-dev.yaml
+SLO_BURN_RATE_THRESHOLD ?= 2
+SLO_ERROR_BUDGET_RATIO ?= 0.0005
+SLO_SERVICES_REGEX ?= api-gateway|checkout|payments|orders
+SLO_STATUS_REGEX ?= 5..
+SLO_WINDOW ?= 5m
 
 refresh-kubeconfig-dev:
 	KUBECONFIG_FILE=$(KUBECONFIG_DEV_FILE) bash scripts/devctl.sh kubeconfig
@@ -95,3 +100,9 @@ grafana-port-forward:
 grafana-uninstall:
 	KUBECONFIG_FILE=$(KUBECONFIG_DEV_FILE) bash scripts/devctl.sh kubeconfig >/dev/null
 	kubectl --kubeconfig $(KUBECONFIG_DEV_FILE) delete -k platform/k8s/observability/grafana --ignore-not-found=true
+
+slo-gate-check:
+	bash scripts/slo-burn-rate-check.sh --threshold $(SLO_BURN_RATE_THRESHOLD) --error-budget-ratio $(SLO_ERROR_BUDGET_RATIO) --services "$(SLO_SERVICES_REGEX)" --status-regex "$(SLO_STATUS_REGEX)" --window $(SLO_WINDOW)
+
+slo-gate-check-prod:
+	bash scripts/slo-burn-rate-check.sh --threshold 1 --error-budget-ratio $(SLO_ERROR_BUDGET_RATIO) --services "$(SLO_SERVICES_REGEX)" --status-regex "$(SLO_STATUS_REGEX)" --window $(SLO_WINDOW)

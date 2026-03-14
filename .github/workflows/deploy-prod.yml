@@ -49,6 +49,9 @@ jobs:
       validate_k8s_all: false
       policy_check: true
       canary_checks: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.canary_checks == 'true' || true }}
+      enforce_slo_gate: true
+      slo_burn_rate_threshold: "1"
+      slo_error_budget_ratio: "0.0005"
       create_namespace: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.create_namespace == 'true' || true }}
       ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.ref || '' }}
     secrets: inherit

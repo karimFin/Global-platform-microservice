@@ -1,0 +1,29 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: gmp-restrict-preview-loadbalancer
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+    - name: disallow-loadbalancer-in-preview
+      match:
+        any:
+          - resources:
+              kinds:
+                - Service
+              namespaces:
+                - "pr-*"
+      exclude:
+        any:
+          - resources:
+              names:
+                - api-gateway
+      validate:
+        message: "Preview namespaces only allow api-gateway as LoadBalancer service"
+        deny:
+          conditions:
+            all:
+              - key: "{{ request.object.spec.type || 'ClusterIP' }}"
+                operator: Equals
+                value: LoadBalancer
