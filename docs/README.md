@@ -67,6 +67,7 @@ make gh-iac-destroy
 - `tools/GITHUB_PACKAGES_PUBLISHING_README.md`
 - `tools/CONTRIBUTOR_SHOWCASE_TEMPLATE_README.md`
 - `tools/TECHNOLOGY_STACK_BASICS_README.md`
+- `tools/SLO_GATE_LOCAL_CLI_README.md`
 
 ## Tool matrix
 | Tool | Purpose | Owner | Operational command |
@@ -85,3 +86,4 @@ make gh-iac-destroy
 | GitHub Packages publish | Manual and tag-based GHCR publishing | Platform/Release | `gh workflow run publish-ghcr-package.yml` |
 | Kyverno policy bundle | Admission guardrails for workloads and services | Platform/SRE | `kubectl apply -k platform/k8s/policy/kyverno` |
 | Reliability automation | Weekly scorecards and monthly game day drills | Platform/SRE | `gh workflow run reliability-scorecard.yml` |
+| Local SLO gate CLI | Local burn-rate validation against Prometheus | Platform/SRE | `make slo-gate-check` |

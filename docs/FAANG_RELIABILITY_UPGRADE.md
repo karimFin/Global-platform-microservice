@@ -44,6 +44,20 @@ Reusable deploy workflow now supports:
 
 When enabled, deployment queries Prometheus with PromQL and fails if computed burn-rate exceeds threshold.
 
+Local parity command:
+
+```bash
+export PROMETHEUS_URL=https://prometheus.example.com
+bash scripts/slo-burn-rate-check.sh --threshold 2 --error-budget-ratio 0.0005 --services "api-gateway|checkout|payments|orders" --status-regex "5.." --window 5m
+```
+
+Makefile parity commands:
+
+```bash
+make slo-gate-check
+make slo-gate-check-prod
+```
+
 Default enforcement enabled in:
 - `.github/workflows/deploy-dev.yml`
 - `.github/workflows/deploy-prod.yml`
