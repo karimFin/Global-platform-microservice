@@ -19,9 +19,7 @@ on:
         required: false
       OCI_CLI_REGION:
         required: false
-      PROMETHEUS_URL:
-        required: false
-      PROMETHEUS_BEARER_TOKEN:
+      SLO_GATE_ENDPOINT:
         required: false
     inputs:
       environment_name:
@@ -93,10 +91,6 @@ on:
         required: true
         type: string
         default: "2"
-      slo_error_budget_ratio:
-        required: true
-        type: string
-        default: "0.0005"
 
 env:
   REGISTRY: ghcr.io
@@ -473,32 +467,19 @@ jobs:
       - name: Enforce SLO burn-rate gate
         if: ${{ inputs.enforce_slo_gate }}
         env:
-          PROMETHEUS_URL: ${{ secrets.PROMETHEUS_URL }}
-          PROMETHEUS_BEARER_TOKEN: ${{ secrets.PROMETHEUS_BEARER_TOKEN }}
+          SLO_GATE_ENDPOINT: ${{ secrets.SLO_GATE_ENDPOINT }}
           SLO_BURN_RATE_THRESHOLD: ${{ inputs.slo_burn_rate_threshold }}
-          SLO_ERROR_BUDGET_RATIO: ${{ inputs.slo_error_budget_ratio }}
         run: |
-          if [ -z "$PROMETHEUS_URL" ]; then
-            echo "::error::PROMETHEUS_URL secret is required when enforce_slo_gate=true"
+          if [ -z "$SLO_GATE_ENDPOINT" ]; then
+            echo "::error::SLO_GATE_ENDPOINT secret is required when enforce_slo_gate=true"
             exit 1
           fi
-          QUERY='sum(rate(http_requests_total{service=~"api-gateway|checkout|payments|orders",status_code=~"5.."}[5m])) / clamp_min(sum(rate(http_requests_total{service=~"api-gateway|checkout|payments|orders"}[5m])), 0.000001)'
-          ENCODED_QUERY=$(jq -rn --arg q "$QUERY" '$q|@uri')
-          if [ -n "$PROMETHEUS_BEARER_TOKEN" ]; then
-            RESPONSE=$(curl -fsSL -H "Authorization: Bearer $PROMETHEUS_BEARER_TOKEN" "${PROMETHEUS_URL%/}/api/v1/query?query=${ENCODED_QUERY}")
-          else
-            RESPONSE=$(curl -fsSL "${PROMETHEUS_URL%/}/api/v1/query?query=${ENCODED_QUERY}")
-          fi
-          ERROR_RATIO=$(printf '%s' "$RESPONSE" | jq -r '.data.result[0].value[1] // empty')
-          if [ -z "$ERROR_RATIO" ]; then
-            ERROR_RATIO="0"
-          fi
-          if [ -z "$SLO_ERROR_BUDGET_RATIO" ] || [ "$SLO_ERROR_BUDGET_RATIO" = "0" ]; then
-            echo "::error::Invalid slo_error_budget_ratio"
+          RESPONSE=$(curl -fsSL "${SLO_GATE_ENDPOINT}?environment=${{ inputs.environment_name }}&tier=tier0")
+          BURN_RATE=$(printf '%s' "$RESPONSE" | jq -r '.burn_rate // empty')
+          if [ -z "$BURN_RATE" ]; then
+            echo "::error::SLO gate response missing burn_rate field"
             exit 1
           fi
-          BURN_RATE=$(awk "BEGIN { printf \"%.6f\", ($ERROR_RATIO / $SLO_ERROR_BUDGET_RATIO) }")
-          echo "Error ratio: $ERROR_RATIO"
           echo "SLO burn rate: $BURN_RATE (threshold: $SLO_BURN_RATE_THRESHOLD)"
           awk "BEGIN {exit !($BURN_RATE > $SLO_BURN_RATE_THRESHOLD)}" && {
             echo "::error::SLO burn-rate gate failed"
@@ -818,32 +799,19 @@ jobs:
       - name: Enforce SLO burn-rate gate (prod)
         if: ${{ inputs.enforce_slo_gate }}
         env:
-          PROMETHEUS_URL: ${{ secrets.PROMETHEUS_URL }}
-          PROMETHEUS_BEARER_TOKEN: ${{ secrets.PROMETHEUS_BEARER_TOKEN }}
+          SLO_GATE_ENDPOINT: ${{ secrets.SLO_GATE_ENDPOINT }}
           SLO_BURN_RATE_THRESHOLD: ${{ inputs.slo_burn_rate_threshold }}
-          SLO_ERROR_BUDGET_RATIO: ${{ inputs.slo_error_budget_ratio }}
         run: |
-          if [ -z "$PROMETHEUS_URL" ]; then
-            echo "::error::PROMETHEUS_URL secret is required when enforce_slo_gate=true"
+          if [ -z "$SLO_GATE_ENDPOINT" ]; then
+            echo "::error::SLO_GATE_ENDPOINT secret is required when enforce_slo_gate=true"
             exit 1
           fi
-          QUERY='sum(rate(http_requests_total{service=~"api-gateway|checkout|payments|orders",status_code=~"5.."}[5m])) / clamp_min(sum(rate(http_requests_total{service=~"api-gateway|checkout|payments|orders"}[5m])), 0.000001)'
-          ENCODED_QUERY=$(jq -rn --arg q "$QUERY" '$q|@uri')
-          if [ -n "$PROMETHEUS_BEARER_TOKEN" ]; then
-            RESPONSE=$(curl -fsSL -H "Authorization: Bearer $PROMETHEUS_BEARER_TOKEN" "${PROMETHEUS_URL%/}/api/v1/query?query=${ENCODED_QUERY}")
-          else
-            RESPONSE=$(curl -fsSL "${PROMETHEUS_URL%/}/api/v1/query?query=${ENCODED_QUERY}")
-          fi
-          ERROR_RATIO=$(printf '%s' "$RESPONSE" | jq -r '.data.result[0].value[1] // empty')
-          if [ -z "$ERROR_RATIO" ]; then
-            ERROR_RATIO="0"
-          fi
-          if [ -z "$SLO_ERROR_BUDGET_RATIO" ] || [ "$SLO_ERROR_BUDGET_RATIO" = "0" ]; then
-            echo "::error::Invalid slo_error_budget_ratio"
+          RESPONSE=$(curl -fsSL "${SLO_GATE_ENDPOINT}?environment=prod&tier=tier0")
+          BURN_RATE=$(printf '%s' "$RESPONSE" | jq -r '.burn_rate // empty')
+          if [ -z "$BURN_RATE" ]; then
+            echo "::error::SLO gate response missing burn_rate field"
             exit 1
           fi
-          BURN_RATE=$(awk "BEGIN { printf \"%.6f\", ($ERROR_RATIO / $SLO_ERROR_BUDGET_RATIO) }")
-          echo "Error ratio: $ERROR_RATIO"
           echo "SLO burn rate: $BURN_RATE (threshold: $SLO_BURN_RATE_THRESHOLD)"
           awk "BEGIN {exit !($BURN_RATE > $SLO_BURN_RATE_THRESHOLD)}" && {
             echo "::error::SLO burn-rate gate failed"

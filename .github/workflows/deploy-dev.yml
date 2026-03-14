@@ -49,7 +49,6 @@ jobs:
       canary_checks: false
       enforce_slo_gate: true
       slo_burn_rate_threshold: "2"
-      slo_error_budget_ratio: "0.0005"
       create_namespace: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.create_namespace == 'true' || true }}
       ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.ref || '' }}
     secrets: inherit
