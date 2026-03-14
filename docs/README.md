@@ -8,6 +8,7 @@
 ## SRE and observability
 - `PLATFORM_SRE_FAANG_IMPLEMENTATION.md`: SRE operating model and Grafana implementation
 - `SRE_PLATFORM_BLUEPRINT.md`: reliability blueprint with SLOs, alerts, runbooks
+- `FAANG_RELIABILITY_UPGRADE.md`: implemented reliability controls and operator setup
 
 ## IaC and platform governance
 - `IAC_ADOPTION_PLAN.md`: what is already declarative and what to convert next
@@ -80,3 +81,5 @@ make gh-iac-destroy
 | GitHub governance IaC | Labels, protections, environments as code | Platform/DevOps | `make gh-iac-apply` |
 | Secret governance + rotation | Policy metadata + controlled secret rotation | Platform/Security | `gh workflow run rotate-environment-secret.yml` |
 | GitHub Packages publish | Manual and tag-based GHCR publishing | Platform/Release | `gh workflow run publish-ghcr-package.yml` |
+| Kyverno policy bundle | Admission guardrails for workloads and services | Platform/SRE | `kubectl apply -k platform/k8s/policy/kyverno` |
+| Reliability automation | Weekly scorecards and monthly game day drills | Platform/SRE | `gh workflow run reliability-scorecard.yml` |

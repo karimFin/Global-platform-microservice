@@ -1,0 +1,35 @@
+name: Reliability Incident
+description: Record an incident and required remediation actions
+title: "[Incident] "
+labels:
+  - reliability
+body:
+  - type: input
+    id: severity
+    attributes:
+      label: Severity
+      description: SEV-1, SEV-2, or SEV-3
+      placeholder: SEV-2
+    validations:
+      required: true
+  - type: textarea
+    id: impact
+    attributes:
+      label: Impact
+      description: Customer and system impact summary
+    validations:
+      required: true
+  - type: textarea
+    id: timeline
+    attributes:
+      label: Timeline
+      description: Detection, mitigation, and recovery timeline
+    validations:
+      required: true
+  - type: textarea
+    id: actions
+    attributes:
+      label: Follow-up actions
+      description: Prevention, detection, and mitigation tasks
+    validations:
+      required: true

@@ -28,6 +28,7 @@ This page gives a quick navigation flow for the project tools and platform build
 - Grafana observability stack: `GRAFANA_OBSERVABILITY_README.md`
 - SRE implementation guide: `../PLATFORM_SRE_FAANG_IMPLEMENTATION.md`
 - SRE blueprint: `../SRE_PLATFORM_BLUEPRINT.md`
+- Reliability upgrade implementation: `../FAANG_RELIABILITY_UPGRADE.md`
 
 ## 6) Governance and security controls
 
@@ -36,6 +37,8 @@ This page gives a quick navigation flow for the project tools and platform build
 - GitHub package publishing: `GITHUB_PACKAGES_PUBLISHING_README.md`
 - Contributor showcase template: `CONTRIBUTOR_SHOWCASE_TEMPLATE_README.md`
 - Secrets governance deep-dive: `../GITHUB_SECRETS_GOVERNANCE.md`
+- Kyverno policy bundle: `../../platform/k8s/policy/kyverno`
+- Conftest policy checks: `../../policy`
 
 ## 7) Architecture references
 

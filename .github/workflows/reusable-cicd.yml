@@ -19,6 +19,8 @@ on:
         required: false
       OCI_CLI_REGION:
         required: false
+      SLO_GATE_ENDPOINT:
+        required: false
     inputs:
       environment_name:
         required: true
@@ -81,6 +83,14 @@ on:
         required: false
         type: string
         default: ""
+      enforce_slo_gate:
+        required: true
+        type: boolean
+        default: false
+      slo_burn_rate_threshold:
+        required: true
+        type: string
+        default: "2"
 
 env:
   REGISTRY: ghcr.io
@@ -454,6 +464,28 @@ jobs:
           OCI_CLI_TENANCY: ${{ secrets.OCI_CLI_TENANCY }}
           OCI_CLI_REGION: ${{ secrets.OCI_CLI_REGION }}
 
+      - name: Enforce SLO burn-rate gate
+        if: ${{ inputs.enforce_slo_gate }}
+        env:
+          SLO_GATE_ENDPOINT: ${{ secrets.SLO_GATE_ENDPOINT }}
+          SLO_BURN_RATE_THRESHOLD: ${{ inputs.slo_burn_rate_threshold }}
+        run: |
+          if [ -z "$SLO_GATE_ENDPOINT" ]; then
+            echo "::error::SLO_GATE_ENDPOINT secret is required when enforce_slo_gate=true"
+            exit 1
+          fi
+          RESPONSE=$(curl -fsSL "${SLO_GATE_ENDPOINT}?environment=${{ inputs.environment_name }}&tier=tier0")
+          BURN_RATE=$(printf '%s' "$RESPONSE" | jq -r '.burn_rate // empty')
+          if [ -z "$BURN_RATE" ]; then
+            echo "::error::SLO gate response missing burn_rate field"
+            exit 1
+          fi
+          echo "SLO burn rate: $BURN_RATE (threshold: $SLO_BURN_RATE_THRESHOLD)"
+          awk "BEGIN {exit !($BURN_RATE > $SLO_BURN_RATE_THRESHOLD)}" && {
+            echo "::error::SLO burn-rate gate failed"
+            exit 1
+          } || true
+
       - name: Create namespace
         if: ${{ inputs.create_namespace }}
         run: kubectl get namespace ${{ inputs.namespace }} || kubectl create namespace ${{ inputs.namespace }}
@@ -763,6 +795,28 @@ jobs:
           kubectl cluster-info
         env:
           KUBE_CONFIG_PROD: ${{ secrets.KUBE_CONFIG_PROD }}
+
+      - name: Enforce SLO burn-rate gate (prod)
+        if: ${{ inputs.enforce_slo_gate }}
+        env:
+          SLO_GATE_ENDPOINT: ${{ secrets.SLO_GATE_ENDPOINT }}
+          SLO_BURN_RATE_THRESHOLD: ${{ inputs.slo_burn_rate_threshold }}
+        run: |
+          if [ -z "$SLO_GATE_ENDPOINT" ]; then
+            echo "::error::SLO_GATE_ENDPOINT secret is required when enforce_slo_gate=true"
+            exit 1
+          fi
+          RESPONSE=$(curl -fsSL "${SLO_GATE_ENDPOINT}?environment=prod&tier=tier0")
+          BURN_RATE=$(printf '%s' "$RESPONSE" | jq -r '.burn_rate // empty')
+          if [ -z "$BURN_RATE" ]; then
+            echo "::error::SLO gate response missing burn_rate field"
+            exit 1
+          fi
+          echo "SLO burn rate: $BURN_RATE (threshold: $SLO_BURN_RATE_THRESHOLD)"
+          awk "BEGIN {exit !($BURN_RATE > $SLO_BURN_RATE_THRESHOLD)}" && {
+            echo "::error::SLO burn-rate gate failed"
+            exit 1
+          } || true
 
       - name: Create namespace
         if: ${{ inputs.create_namespace }}
