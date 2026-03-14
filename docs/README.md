@@ -3,6 +3,7 @@
 ## Core architecture
 - `ARCHITECTURE_DEEP_DIVE.md`: full runtime/data/event/deploy architecture breakdown
 - `TEAM_AND_CREDITS.md`: maintainer credits and open contributor roles
+- `SYSTEM_DESIGN_INTERVIEW_QA.md`: interview Q&A playbook for architecture and tech lead rounds
 - `assets/global-marketplace-architecture.gif`: animated architecture walkthrough
 
 ## SRE and observability
