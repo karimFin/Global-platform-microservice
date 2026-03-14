@@ -6,7 +6,6 @@ This page gives a quick navigation flow for the project tools and platform build
 
 - Docker local stack: `DOCKER_LOCAL_STACK_README.md`
 - Project structure overview: `PROJECT_STRUCTURE_README.md`
-- Technology stack basics: `TECHNOLOGY_STACK_BASICS_README.md`
 
 ## 2) Runtime orchestration
 
@@ -30,7 +29,6 @@ This page gives a quick navigation flow for the project tools and platform build
 - SRE implementation guide: `../PLATFORM_SRE_FAANG_IMPLEMENTATION.md`
 - SRE blueprint: `../SRE_PLATFORM_BLUEPRINT.md`
 - Reliability upgrade implementation: `../FAANG_RELIABILITY_UPGRADE.md`
-- Local SLO gate CLI usage: `SLO_GATE_LOCAL_CLI_README.md`
 
 ## 6) Governance and security controls
 

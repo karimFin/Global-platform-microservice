@@ -38,25 +38,9 @@ The rules define fast and slow burn-rate alerts for Tier0 availability.
 Reusable deploy workflow now supports:
 - `enforce_slo_gate`
 - `slo_burn_rate_threshold`
-- `slo_error_budget_ratio`
-- secret `PROMETHEUS_URL`
-- optional secret `PROMETHEUS_BEARER_TOKEN`
+- secret `SLO_GATE_ENDPOINT`
 
-When enabled, deployment queries Prometheus with PromQL and fails if computed burn-rate exceeds threshold.
-
-Local parity command:
-
-```bash
-export PROMETHEUS_URL=https://prometheus.example.com
-bash scripts/slo-burn-rate-check.sh --threshold 2 --error-budget-ratio 0.0005 --services "api-gateway|checkout|payments|orders" --status-regex "5.." --window 5m
-```
-
-Makefile parity commands:
-
-```bash
-make slo-gate-check
-make slo-gate-check-prod
-```
+When enabled, deployment fails if reported burn-rate exceeds threshold.
 
 Default enforcement enabled in:
 - `.github/workflows/deploy-dev.yml`
@@ -93,9 +77,8 @@ Outputs:
 
 ## Operator setup checklist
 
-1. Configure `PROMETHEUS_URL` secret in GitHub environments.
-2. Configure `PROMETHEUS_BEARER_TOKEN` when Prometheus endpoint requires auth.
-3. Ensure Prometheus Operator CRDs exist before applying reliability manifests.
-4. Install Kyverno controller in the target cluster before applying ClusterPolicies.
-5. Confirm `reliability` label exists in repository labels.
-6. Review weekly scorecard issues and monthly game day outcomes.
+1. Configure `SLO_GATE_ENDPOINT` secret in GitHub environments.
+2. Ensure Prometheus Operator CRDs exist before applying reliability manifests.
+3. Install Kyverno controller in the target cluster before applying ClusterPolicies.
+4. Confirm `reliability` label exists in repository labels.
+5. Review weekly scorecard issues and monthly game day outcomes.
