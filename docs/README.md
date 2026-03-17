@@ -4,6 +4,7 @@
 - `ARCHITECTURE_DEEP_DIVE.md`: full runtime/data/event/deploy architecture breakdown
 - `TEAM_AND_CREDITS.md`: maintainer credits and open contributor roles
 - `SYSTEM_DESIGN_INTERVIEW_QA.md`: interview Q&A playbook for architecture and tech lead rounds
+- `SYSTEM_DESIGN_FAANG_BEGINNER_QA.md`: beginner-first FAANG system design Q&A based on this project
 - `assets/global-marketplace-architecture.gif`: animated architecture walkthrough
 
 ## SRE and observability

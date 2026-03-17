@@ -46,6 +46,7 @@ This page gives a quick navigation flow for the project tools and platform build
 
 - Architecture deep dive: `../ARCHITECTURE_DEEP_DIVE.md`
 - System design interview Q&A: `../SYSTEM_DESIGN_INTERVIEW_QA.md`
+- Beginner FAANG interview Q&A: `../SYSTEM_DESIGN_FAANG_BEGINNER_QA.md`
 - Architecture GIF: `../assets/global-marketplace-architecture.gif`
 
 ## Recommended reading order for new engineers
