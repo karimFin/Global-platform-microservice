@@ -5,7 +5,7 @@
 [![Preview PR](https://github.com/karimFin/gpm-microservices/actions/workflows/preview-pr.yml/badge.svg)](https://github.com/karimFin/gpm-microservices/actions/workflows/preview-pr.yml)
 [![Publish GHCR Package](https://github.com/karimFin/gpm-microservices/actions/workflows/publish-ghcr-package.yml/badge.svg)](https://github.com/karimFin/gpm-microservices/actions/workflows/publish-ghcr-package.yml)
 
-Production-oriented marketplace platform with microservices, event streaming, and Kubernetes-first operations.
+Research-oriented distributed system demonstrating microservices architecture, scalability, inter-service communication, and cloud-native deployment patterns.
 
 ## Why this repository
 
